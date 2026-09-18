@@ -151,7 +151,7 @@ def _component_foot(pixels: np.ndarray) -> Foot | None:
     return foot
 
 
-def geometric_from_mask(mask_dir: Path = MASKS, min_area_fraction: float = 0.01) -> Predictor:
+def geometric_from_mask(mask_dir: Path, min_area_fraction: float = 0.01) -> Predictor:
     def predict(image: np.ndarray, stem: str) -> list[Foot]:
         mask_path = mask_dir / f"{stem}.png"
         if not mask_path.exists():
@@ -177,5 +177,6 @@ CANDIDATES: dict[str, Callable[[], Predictor]] = {
     "mediapipe": mediapipe_pose,
     "rtmw-det": rtmw_with_detector,
     "rtmw-full": rtmw_full_frame,
-    "geometric": geometric_from_mask,
+    "geometric": lambda: geometric_from_mask(MASKS / "person"),
+    "geometric-fg": lambda: geometric_from_mask(MASKS / "foreground"),
 }
