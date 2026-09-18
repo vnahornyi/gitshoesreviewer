@@ -31,8 +31,11 @@ About 60 photos, stood up, phone at chest height, looking down:
 | `data/raw/top/` | 40 | both feet from above, feet turned at different angles, sometimes only one foot in frame |
 | `data/raw/step/` | 10 | one foot stepped forward, so the foot is tilted |
 | `data/raw/34/` | 10 | three-quarter view from above |
+| `data/raw/close/` | any | close-up handheld pass around one foot. A separate slice for "different feet", not the demo view |
 
 Vary what is on the feet (socks, barefoot, sneakers), use two floor surfaces, and shoot in two kinds of light. HEIC is fine; AirDrop the photos into the folders.
+
+A 30–40 s video can replace the photos: put the `.MOV` into the view's folder. Frames are sampled every 0.5 s, and the blurriest quarter of them is dropped.
 
 ## 2. Prepare
 
@@ -40,7 +43,7 @@ Vary what is on the feet (socks, barefoot, sneakers), use two floor surfaces, an
 uv run python -m spike.prepare
 ```
 
-This applies EXIF orientation, downscales to 1600 px, and writes `data/prepared/<view>_<nnn>.jpg`.
+This applies EXIF orientation, downscales to 1600 px, and writes `data/prepared/<view>_<nnn>.jpg` for photos and `data/prepared/<view>_<video>_<ms>.jpg` for video frames. `--every 0.25` samples denser, and `--drop-blurriest 0.4` is stricter.
 
 ## 3. Masks (for the geometric candidates)
 
@@ -54,10 +57,11 @@ This writes `data/masks/person/<stem>.png` and `data/masks/foreground/<stem>.png
 ## 4. Label
 
 ```bash
+uv run python -m spike.label --points toe-heel
 uv run python -m spike.label
 ```
 
-Per foot, click in order: **big toe → small toe → heel → ankle**. In the top view the heel is usually hidden behind the shin. Click where it would be anyway; the heel→toe line is what the angle metric uses. Keys: `x` not visible and cannot be estimated, `n` next foot, `u` undo, `s` save the image, `q` quit (progress is kept in `data/labels.json`).
+`--points toe-heel` asks for two clicks per foot, which is enough for the GO/NO-GO metrics. Without it, per foot, click in order: **big toe → small toe → heel → ankle**. In the top view the heel is usually hidden behind the shin. Click where it would be anyway; the heel→toe line is what the angle metric uses. Keys: `x` not visible and cannot be estimated, `n` next foot, `u` undo, `s` save the image, `d` discard the image (a blurry frame, no foot, or a person's face in it), `q` quit (progress is kept in `data/labels.json`).
 
 ## 5. Run
 

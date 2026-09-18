@@ -4,7 +4,7 @@ from pathlib import Path
 import numpy as np
 
 KEYPOINTS = ("big_toe", "small_toe", "heel", "ankle")
-VIEWS = ("top", "step", "34")
+VIEWS = ("top", "step", "34", "close")
 
 ROOT = Path(__file__).resolve().parent.parent
 DATA = ROOT / "data"

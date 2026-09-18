@@ -1,3 +1,4 @@
+import argparse
 import json
 
 import cv2
@@ -6,7 +7,9 @@ from .common import KEYPOINTS, LABELS, prepared_images
 
 WINDOW = "label"
 COLORS = {"big_toe": (0, 0, 255), "small_toe": (0, 165, 255), "heel": (255, 0, 0), "ankle": (0, 200, 0)}
-HELP = "click point | x: not visible | n: next foot | u: undo | s: save image | q: quit"
+HELP = "click point | x: not visible | n: next foot | u: undo | s: save image | d: discard image | q: quit"
+POINT_SETS = {"all": KEYPOINTS, "toe-heel": ("big_toe", "heel")}
+DISCARD = object()
 
 
 def load() -> dict:
@@ -27,7 +30,7 @@ def draw(image, feet, current):
     return canvas
 
 
-def label_image(image) -> list[dict] | None:
+def label_image(image, points: tuple[str, ...]):
     feet: list[dict] = []
     current: dict = {}
     state = {"click": None}
@@ -38,7 +41,7 @@ def label_image(image) -> list[dict] | None:
 
     cv2.setMouseCallback(WINDOW, on_mouse)
     while True:
-        pending = next((k for k in KEYPOINTS if k not in current), None)
+        pending = next((k for k in points if k not in current), None)
         cv2.setWindowTitle(WINDOW, f"foot {len(feet) + 1}: {pending or 'done, press n or s'}  —  {HELP}")
         cv2.imshow(WINDOW, draw(image, feet, current))
         key = cv2.waitKey(30) & 0xFF
@@ -54,20 +57,25 @@ def label_image(image) -> list[dict] | None:
             current = {}
         elif key == ord("s"):
             return feet + ([current] if current else [])
+        elif key == ord("d"):
+            return DISCARD
         elif key == ord("q"):
             return None
 
 
 def main() -> None:
+    parser = argparse.ArgumentParser(description="Click foot keypoints on prepared images")
+    parser.add_argument("--points", choices=POINT_SETS, default="all", help="which keypoints to click per foot")
+    points = POINT_SETS[parser.parse_args().points]
     labels = load()
     cv2.namedWindow(WINDOW, cv2.WINDOW_NORMAL)
     for path in prepared_images():
         if path.stem in labels:
             continue
-        feet = label_image(cv2.imread(str(path)))
+        feet = label_image(cv2.imread(str(path)), points)
         if feet is None:
             break
-        labels[path.stem] = {"feet": feet}
+        labels[path.stem] = {"feet": [], "discarded": True} if feet is DISCARD else {"feet": feet}
         save(labels)
     cv2.destroyAllWindows()
     print(f"{len(labels)} images labeled in {LABELS}")

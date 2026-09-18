@@ -29,7 +29,7 @@ def draw_feet(canvas: np.ndarray, feet: list[Foot], color) -> None:
 
 def evaluate(names: list[str]) -> dict:
     labels = json.loads(LABELS.read_text())
-    images = [p for p in prepared_images() if p.stem in labels]
+    images = [p for p in prepared_images() if p.stem in labels and not labels[p.stem].get("discarded")]
     if not images:
         raise SystemExit(f"no labeled images: run spike.prepare and spike.label first ({LABELS})")
 
