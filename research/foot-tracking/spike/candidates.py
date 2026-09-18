@@ -17,10 +17,26 @@ RTMW_POSE_URL = (
     "https://download.openmmlab.com/mmpose/v1/projects/rtmw/onnx_sdk/"
     "rtmw-dw-x-l_simcc-cocktail14_270e-256x192_20231122.zip"
 )
+RTMPOSE_M_HALPE26_URL = (
+    "https://download.openmmlab.com/mmpose/v1/projects/rtmposev1/onnx_sdk/"
+    "rtmpose-m_simcc-body7_pt-body7-halpe26_700e-256x192-4d3e73dd_20230605.zip"
+)
+RTMPOSE_S_HALPE26_URL = (
+    "https://download.openmmlab.com/mmpose/v1/projects/rtmposev1/onnx_sdk/"
+    "rtmpose-s_simcc-body7_pt-body7-halpe26_700e-256x192-7f134165_20230605.zip"
+)
+RTMW_M_POSE_URL = (
+    "https://download.openmmlab.com/mmpose/v1/projects/rtmw/onnx_sdk/"
+    "rtmw-dw-l-m_simcc-cocktail14_270e-256x192_20231122.zip"
+)
 
 MEDIAPIPE_FEET = (
     {"ankle": 27, "heel": 29, "big_toe": 31},
     {"ankle": 28, "heel": 30, "big_toe": 32},
+)
+HALPE26_FEET = (
+    {"ankle": 15, "big_toe": 20, "small_toe": 22, "heel": 24},
+    {"ankle": 16, "big_toe": 21, "small_toe": 23, "heel": 25},
 )
 COCO_WHOLEBODY_FEET = (
     {"ankle": 15, "big_toe": 17, "small_toe": 18, "heel": 19},
@@ -105,15 +121,15 @@ def rtmw_with_detector() -> Predictor:
     return predict
 
 
-def rtmw_full_frame() -> Predictor:
+def rtmw_full_frame(url: str = RTMW_POSE_URL, mapping=COCO_WHOLEBODY_FEET) -> Predictor:
     from rtmlib import RTMPose
 
-    model = RTMPose(RTMW_POSE_URL, model_input_size=(192, 256), backend="onnxruntime", device="cpu")
+    model = RTMPose(url, model_input_size=(192, 256), backend="onnxruntime", device="cpu")
 
     def predict(image: np.ndarray, _stem: str) -> list[Foot]:
         height, width = image.shape[:2]
         keypoints, scores = model(image, bboxes=[[0, 0, width, height]])
-        return _feet_from(keypoints[0], scores[0], COCO_WHOLEBODY_FEET)
+        return _feet_from(keypoints[0], scores[0], mapping)
 
     return predict
 
@@ -195,6 +211,9 @@ CANDIDATES: dict[str, Callable[[], Predictor]] = {
     "mediapipe": mediapipe_pose,
     "rtmw-det": rtmw_with_detector,
     "rtmw-full": rtmw_full_frame,
+    "rtmw-m-full": lambda: rtmw_full_frame(RTMW_M_POSE_URL),
+    "rtmpose-m-feet": lambda: rtmw_full_frame(RTMPOSE_M_HALPE26_URL, HALPE26_FEET),
+    "rtmpose-s-feet": lambda: rtmw_full_frame(RTMPOSE_S_HALPE26_URL, HALPE26_FEET),
     "geometric": lambda: geometric_from_mask(MASKS / "person"),
     "geometric-fg": lambda: geometric_from_mask(MASKS / "foreground"),
 }

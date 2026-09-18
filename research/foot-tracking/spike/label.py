@@ -7,6 +7,7 @@ from .common import KEYPOINTS, LABELS, prepared_images
 
 WINDOW = "label"
 COLORS = {"big_toe": (0, 0, 255), "small_toe": (0, 165, 255), "heel": (255, 0, 0), "ankle": (0, 200, 0)}
+CAPTIONS = {"big_toe": "toe", "small_toe": "small toe", "heel": "heel (back of the heel, not the ankle bone)", "ankle": "ankle"}
 HELP = "click point | x: not visible | n: next foot | u: undo | s: save image | d: discard image | q: quit"
 POINT_SETS = {"all": KEYPOINTS, "toe-heel": ("big_toe", "heel")}
 DISCARD = object()
@@ -27,6 +28,7 @@ def draw(image, feet, current):
         for name, point in foot.items():
             if point is not None:
                 cv2.circle(canvas, (int(point[0]), int(point[1])), 6, COLORS[name], -1)
+                cv2.putText(canvas, CAPTIONS[name].split(" ")[0], (int(point[0]) + 8, int(point[1]) - 8), cv2.FONT_HERSHEY_SIMPLEX, 0.8, COLORS[name], 2)
     return canvas
 
 
@@ -42,7 +44,8 @@ def label_image(image, points: tuple[str, ...]):
     cv2.setMouseCallback(WINDOW, on_mouse)
     while True:
         pending = next((k for k in points if k not in current), None)
-        cv2.setWindowTitle(WINDOW, f"foot {len(feet) + 1}: {pending or 'done, press n or s'}  —  {HELP}")
+        prompt = f"click the {CAPTIONS[pending]}" if pending else "done: n = next foot, s = save image"
+        cv2.setWindowTitle(WINDOW, f"foot {len(feet) + 1}: {prompt}  —  {HELP}")
         cv2.imshow(WINDOW, draw(image, feet, current))
         key = cv2.waitKey(30) & 0xFF
         if state["click"] and pending:

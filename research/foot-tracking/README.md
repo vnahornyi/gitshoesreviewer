@@ -10,6 +10,8 @@ This spike decides whether the try-on pipeline can find a foot in the demo view:
 | `rtmw-det` | RTMW whole-body (COCO-WholeBody feet: big toe, small toe, heel, ankle) behind the YOLOX person detector | Apache-2.0 |
 | `rtmw-full` | The same RTMW pose model run on the whole frame, with no detector — for views where no full person is visible | Apache-2.0 |
 | `geometric` | No keypoint model. It reads the Apple Vision **person** mask, splits it into per-leg components, and uses PCA to get the heel→toe axis. The toe is the end away from the bottom edge, and the heel is where the width narrows behind the ball of the foot | — |
+| `rtmw-m-full` | RTMW-m (`rtmw-dw-l-m`, distilled) on the whole frame | Apache-2.0 |
+| `rtmpose-m-feet` / `rtmpose-s-feet` | RTMPose-m / -s trained on Halpe26 (body + 6 foot points) on the whole frame, the small models | Apache-2.0 |
 | `geometric-fg` | The same geometry on Apple Vision's **foreground instance** mask (subject lifting), which may separate shoes from the floor better in a close-up | — |
 
 Apple Vision body pose (2D and 3D) is not a candidate: its skeleton ends at the ankle, with no heel or toe joints, so it cannot give the heel→toe axis.
@@ -112,5 +114,29 @@ First read, before metrics: **RTMW whole-body covers every scenario**, including
 
 Open:
 - only white socks, no sneakers;
-- RTMW here is the `dw-x-l` model (≈ 70 ms on the Mac CPU), and whether a mobile-size RTMW keeps this on an iPhone 11 is the next thing to measure;
+- speed on the iPhone 11 — see below.
 - labels for real metrics.
+
+**2026-09-18, smaller models against `rtmw-full` (`--agree-with rtmw-full`), no labels.** "Agrees" means that both the toe and the heel lie within 15% of foot length of what `rtmw-full` found. This is a proxy: even `rtmw-det` and `rtmw-full` agree on only 50–85% of feet, so disagreement does not show which of the two is wrong.
+
+| Model | ONNX fp32 | Mac CPU | agrees: mirror-full / mirror-lower / third / top / close |
+|---|---|---|---|
+| `rtmw-full` (x-l) | 229 MB | 69 ms | reference |
+| `rtmw-m-full` | 129 MB | 38 ms | 23/45 · 28/34 · 19/37 · 11/52 · 14/46 |
+| `rtmpose-m-feet` | 56 MB | 18 ms | 20/45 · 24/34 · 18/37 · 11/52 · 12/46 |
+| `rtmpose-s-feet` | 23 MB | 8 ms | 11/45 · 19/34 · 0/37 · 1/52 · 5/46 |
+
+Where the models agree, the axis differs by only 2–5°. The small models fall away mainly on `top` and `close`, the views farthest from their training data. Decision for the app: start with RTMW x-l converted to Core ML fp16 (≈ 115 MB). Measure it on the iPhone 11 Neural Engine, and use `rtmpose-m-feet` as the fallback if it is too slow for live AR. Labels are still needed to tell which model is actually right.
+
+**2026-09-18, first labeled run (172 frames, 189 feet, `--points toe-heel`).** The first pass clicked heel then toe, the reverse of the order the tool asked for. This was caught by checking against `rtmw-full` (134 of 138 feet were swapped) and fixed by swapping the two points in every foot; the original file is kept as `data/labels.before-swap.json`. The labels are noisy by the labeler's own account: "heel" is sometimes the back of the heel and sometimes the ankle bone, and "toe" is sometimes the sock tip and sometimes the toe base. So PCK@0.05 (≈ 10 px) says little here, and the decision leans on **detected** and **axis error**.
+
+| Scenario | `rtmw-full` detected / axis err | `rtmpose-m-feet` detected / axis err | Best alternative | Decision |
+|---|---|---|---|---|
+| `mirror-full` | 91% / 7.6° | 87% / 6.2° | `rtmw-det` 96% / 5.2° | **GO** |
+| `mirror-lower` | 100% / 5.2° | 100% / 3.3° | — | **GO** |
+| `third` | 91% / 4.2° | 91% / 2.1° | — | **GO** |
+| `top` | 70% / 8.6° | 55% / 7.7° | `geometric-fg` 68% / 6.2° | **PARTIAL** — works on sharp frames, blur breaks it, needs temporal smoothing in live mode |
+| `close` | 52% / 4.7° | 48% / 7.1° | — | **PARTIAL / NO-GO for single frames** — when a foot is found the axis is good, but half the frames find none. Live tracking has to carry the pose between detections |
+
+Overall `rtmw-full` found 71% of feet at a 6.0° median axis error; `rtmpose-m-feet` found 65% at 5.5°, in 18 ms instead of 66 ms on the Mac. PCK@0.10 is 25–40% for both, and label noise is the main suspect. **Pick for the app: RTMW x-l first (quality), `rtmpose-m-feet` as the fallback if the iPhone 11 cannot hold it in live mode.** The labeler now captions the points ("toe", "heel — back of the heel, not the ankle bone") so the next labeling pass is cleaner.
+

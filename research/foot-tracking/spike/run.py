@@ -84,6 +84,37 @@ def preview(names: list[str], limit: int | None) -> None:
         print(f"{name}: a foot axis on {per_view}; {np.median(latencies):.0f} ms median; overlays in {out}")
 
 
+def agreement(reference: str, names: list[str], tolerance: float = 0.15) -> None:
+    images = prepared_images()
+    predict_reference = CANDIDATES[reference]()
+    reference_feet = {p.stem: predict_reference(cv2.imread(str(p)), p.stem) for p in images}
+    for name in names:
+        if name == reference:
+            continue
+        predict = CANDIDATES[name]()
+        totals = defaultdict(lambda: {"reference": 0, "agree": 0, "extra": 0, "angles": []})
+        latencies = []
+        for path in images:
+            image = cv2.imread(str(path))
+            started = time.perf_counter()
+            predicted = predict(image, path.stem)
+            latencies.append((time.perf_counter() - started) * 1000)
+            view = view_of(path.stem)
+            truth = reference_feet[path.stem]
+            totals[view]["reference"] += len(truth)
+            totals[view]["extra"] += max(0, len(predicted) - len(truth))
+            for result in match(truth, predicted, view):
+                if result.detected and result.errors.get("big_toe", 1) <= tolerance and result.errors.get("heel", 1) <= tolerance:
+                    totals[view]["agree"] += 1
+                    totals[view]["angles"].append(result.axis_error_deg)
+        print(f"{name} vs {reference}: {np.median(latencies):.0f} ms median on the Mac")
+        for view in VIEWS:
+            t = totals[view]
+            if t["reference"]:
+                angle = f"{np.median(t['angles']):.1f}°" if t["angles"] else "—"
+                print(f"  {view:13s} agrees on {t['agree']}/{t['reference']} feet, axis diff {angle}, extra feet {t['extra']}")
+
+
 def markdown(report: dict) -> str:
     rows = ["| candidate | view | feet | detected | PCK@0.05 toe | PCK@0.05 heel | PCK@0.10 toe | PCK@0.10 heel | axis err, ° | ms (Mac) |",
             "|---|---|---|---|---|---|---|---|---|---|"]
@@ -131,6 +162,7 @@ def main() -> None:
     parser.add_argument("--self-test", action="store_true")
     parser.add_argument("--preview", action="store_true", help="draw predictions without labels, for a first look")
     parser.add_argument("--limit", type=int, help="with --preview: only the first N images")
+    parser.add_argument("--agree-with", help="compare --candidates with this reference candidate, without labels")
     args = parser.parse_args()
 
     names = [n.strip() for n in args.candidates.split(",") if n.strip()]
@@ -139,6 +171,9 @@ def main() -> None:
         return
     if args.preview:
         preview(names, args.limit)
+        return
+    if args.agree_with:
+        agreement(args.agree_with, names)
         return
 
     report = evaluate(names)
