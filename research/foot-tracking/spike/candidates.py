@@ -36,6 +36,23 @@ def _download(url: str, name: str) -> Path:
     return target
 
 
+MIN_AXIS_SCORE = 0.25
+
+
+def _axis_score(foot: Foot) -> float:
+    return min(foot.scores.get("big_toe", 0.0), foot.scores.get("heel", 0.0))
+
+
+def _distinct(feet: list[Foot]) -> list[Foot]:
+    kept: list[Foot] = []
+    for foot in sorted(feet, key=_axis_score, reverse=True):
+        toe, heel = foot.get("big_toe"), foot.get("heel")
+        length = np.linalg.norm(toe - heel) + 1e-6
+        if all(np.linalg.norm(toe - k.get("big_toe")) > 0.3 * length for k in kept):
+            kept.append(foot)
+    return kept
+
+
 def _feet_from(keypoints: np.ndarray, scores: np.ndarray, mapping) -> list[Foot]:
     feet = []
     for side in mapping:
@@ -43,8 +60,9 @@ def _feet_from(keypoints: np.ndarray, scores: np.ndarray, mapping) -> list[Foot]
         for name, index in side.items():
             foot.points[name] = (float(keypoints[index][0]), float(keypoints[index][1]))
             foot.scores[name] = float(scores[index])
-        feet.append(foot)
-    return feet
+        if _axis_score(foot) >= MIN_AXIS_SCORE:
+            feet.append(foot)
+    return _distinct(feet)
 
 
 def mediapipe_pose() -> Predictor:

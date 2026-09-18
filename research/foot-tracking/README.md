@@ -24,18 +24,17 @@ MediaPipe is pinned to 0.10.35: 1.0.x aborts on macOS in `TensorsToDetectionsCal
 
 ## 1. Shoot (iPhone 11)
 
-About 60 photos, stood up, phone at chest height, looking down:
+One 30–40 s video per scenario, in socks and in sneakers (not only barefoot). Put each `.MOV` into its scenario folder. Photos (HEIC is fine) work too.
 
-| Folder | Count | What |
-|---|---|---|
-| `data/raw/top/` | 40 | both feet from above, feet turned at different angles, sometimes only one foot in frame |
-| `data/raw/step/` | 10 | one foot stepped forward, so the foot is tilted |
-| `data/raw/34/` | 10 | three-quarter view from above |
-| `data/raw/close/` | any | close-up handheld pass around one foot. A separate slice for "different feet", not the demo view |
+| Folder | Scenario |
+|---|---|
+| `data/raw/mirror-full/` | the phone's back camera points at a mirror, and the whole body is visible |
+| `data/raw/mirror-lower/` | the same, but only the legs and feet are visible |
+| `data/raw/third/` | someone else films your feet from the side or front |
+| `data/raw/top/` | standing, phone at chest height, looking down at your own feet |
+| `data/raw/close/` | handheld 20–40 cm from one foot, any side including the sole |
 
-Vary what is on the feet (socks, barefoot, sneakers), use two floor surfaces, and shoot in two kinds of light. HEIC is fine; AirDrop the photos into the folders.
-
-A 30–40 s video can replace the photos: put the `.MOV` into the view's folder. Frames are sampled every 0.5 s, and the blurriest quarter of them is dropped.
+Frames are sampled every 0.5 s, and the blurriest quarter of them is dropped. Vary the floor and the light.
 
 ## 2. Prepare
 
@@ -73,6 +72,8 @@ uv run python -m spike.run --self-test
 
 Output: `results/report.md` (the table), `results/report.json`, and `results/overlays/<candidate>/` (green = label, red = prediction).
 
+`--preview` needs no labels: it draws every candidate's heel→toe arrows into `results/preview/<candidate>/`, for a first look (`--limit N` for a quick pass). Keypoint candidates keep a foot only when both its toe and heel scores reach `MIN_AXIS_SCORE` (0.25 in `spike/candidates.py`). That value is a working one from eyeballing the `close` frames (correct feet scored 0.30–0.48, wrong ones 0.12–0.22); recalibrate it on labeled data.
+
 Metrics are computed per view and over all photos:
 - **detected** — a predicted big toe within half a foot length of the labeled one;
 - **PCK@0.05 / 0.10** — share of feet whose point lies within 5% / 10% of the labeled heel→toe length;
@@ -84,9 +85,32 @@ Metrics are computed per view and over all photos:
 Thresholds come from plan step 2. They are working assumptions, not requirements from a document.
 
 - **GO** — a keypoint candidate reaches PCK@0.05 ≥ 0.8 in the `top` view, **or** `geometric` / `geometric-fg` reaches an axis error ≤ 8° with a toe error ≤ 5% of foot length.
-- **PARTIAL** — only feet standing flat pass (`top` passes, `step` fails): photo mode ships with a "stand straight" hint.
+- The decision is made per scenario (`mirror-full`, `mirror-lower`, `third`, `top`, `close`).
+- **PARTIAL** — a scenario passes only under a constraint (for example standing still, or one angle): it ships with a hint for the user.
 - **NO-GO** — nothing passes: stop, and decide separately about fine-tuning on ~500–1000 labeled photos.
 
 ## Results
 
-_Not run yet: waiting for the photos._
+**2026-09-18, `close` preview, no labels.** 68 frames from 3 videos (one adult foot, two child feet, barefoot, handheld 20–40 cm, sole views included). These are eyeballed, not measured:
+
+- `rtmw-full` keeps a foot on 40 of 68 frames at score ≥ 0.25 (29 at 0.30) (~70 ms on the Mac). The arrows checked by eye point the right way, including on sole views. Frames with only the heel in view come out wrong and score low.
+- `rtmw-det` keeps a foot on 28 of 68, because the person detector often misses a lone foot.
+- `mediapipe` finds a foot on 3 of 68 (it needs the whole body).
+- `geometric` on the person mask points the wrong way in the close view: its "toe away from the bottom edge" assumption holds only for `top`. `geometric-fg` is right on some frames.
+
+**2026-09-18, preview of all scenarios, no labels.** Videos IMG_3247 (`mirror-full`), IMG_3248 (`mirror-lower`), IMG_3249 and IMG_3250 (`top`, standing and walking), IMG_3251 (`third`: someone else films the feet close to floor level). White socks, one adult, one room. Share of frames with a foot kept, and what the overlays show when checked by eye:
+
+| Scenario | frames | `mediapipe` | `rtmw-det` | `rtmw-full` | `geometric-fg` |
+|---|---|---|---|---|---|
+| `mirror-full` | 23 | 21 — right when both feet are visible | 23 — right | 23 — right | wrong: the mask is the whole body |
+| `mirror-lower` | 17 | 10 — right on frontal frames | 17 — mostly right, side views too | 17 — mostly right | wrong |
+| `third` | 23 | 0 | 21 — right on most frames, one foot flipped when the soles face the camera | 21 — same as `rtmw-det` | wrong |
+| `top` | 41 | 1 | 35 — right on sharp frames | 35 — right on sharp frames, wrong on some motion-blurred ones | 40 — right when the foot points up the frame, as designed |
+| `close` | 68 | 3 | 28 | 40 | partial |
+
+First read, before metrics: **RTMW whole-body covers every scenario**, including the mirror and the top view. `geometric-fg` is a fallback for `top` only, and `mediapipe` for `mirror-full` only. Motion blur while walking (IMG_3250) breaks every candidate.
+
+Open:
+- only white socks, no sneakers;
+- RTMW here is the `dw-x-l` model (≈ 70 ms on the Mac CPU), and whether a mobile-size RTMW keeps this on an iPhone 11 is the next thing to measure;
+- labels for real metrics.

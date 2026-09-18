@@ -60,6 +60,30 @@ def evaluate(names: list[str]) -> dict:
     return report
 
 
+def preview(names: list[str], limit: int | None) -> None:
+    images = prepared_images()[:limit] if limit else prepared_images()
+    if not images:
+        raise SystemExit("no prepared images: run spike.prepare first")
+    for name in names:
+        predict = CANDIDATES[name]()
+        out = RESULTS / "preview" / name
+        out.mkdir(parents=True, exist_ok=True)
+        found = defaultdict(int)
+        seen = defaultdict(int)
+        latencies = []
+        for path in images:
+            image = cv2.imread(str(path))
+            started = time.perf_counter()
+            predicted = [f for f in predict(image, path.stem) if f.get("big_toe") is not None and f.get("heel") is not None]
+            latencies.append((time.perf_counter() - started) * 1000)
+            seen[view_of(path.stem)] += 1
+            found[view_of(path.stem)] += bool(predicted)
+            draw_feet(image, predicted, PREDICTION_COLOR)
+            cv2.imwrite(str(out / path.name), image)
+        per_view = ", ".join(f"{view} {found[view]}/{seen[view]}" for view in VIEWS if seen[view])
+        print(f"{name}: a foot axis on {per_view}; {np.median(latencies):.0f} ms median; overlays in {out}")
+
+
 def markdown(report: dict) -> str:
     rows = ["| candidate | view | feet | detected | PCK@0.05 toe | PCK@0.05 heel | PCK@0.10 toe | PCK@0.10 heel | axis err, ° | ms (Mac) |",
             "|---|---|---|---|---|---|---|---|---|---|"]
@@ -105,13 +129,19 @@ def main() -> None:
     parser = argparse.ArgumentParser(description="Foot tracking spike: compare candidates on labeled photos")
     parser.add_argument("--candidates", default=",".join(CANDIDATES), help=f"comma-separated subset of {list(CANDIDATES)}")
     parser.add_argument("--self-test", action="store_true")
+    parser.add_argument("--preview", action="store_true", help="draw predictions without labels, for a first look")
+    parser.add_argument("--limit", type=int, help="with --preview: only the first N images")
     args = parser.parse_args()
 
+    names = [n.strip() for n in args.candidates.split(",") if n.strip()]
     if args.self_test:
         self_test()
         return
+    if args.preview:
+        preview(names, args.limit)
+        return
 
-    report = evaluate([n.strip() for n in args.candidates.split(",") if n.strip()])
+    report = evaluate(names)
     RESULTS.mkdir(parents=True, exist_ok=True)
     (RESULTS / "report.json").write_text(json.dumps(report, indent=2))
     table = markdown(report)
