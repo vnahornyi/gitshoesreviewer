@@ -10,7 +10,10 @@ MEAN = np.array([123.675, 116.28, 103.53], dtype=np.float32)
 STD = np.array([58.395, 57.12, 57.375], dtype=np.float32)
 INPUT_W, INPUT_H = 192, 256
 SIMCC_SPLIT = 2.0
-FEET = {"left_big_toe": 17, "left_heel": 19, "right_big_toe": 20, "right_heel": 22}
+FEET = {
+    "wholebody": {"left_big_toe": 17, "left_heel": 19, "right_big_toe": 20, "right_heel": 22},
+    "halpe26": {"left_big_toe": 20, "left_heel": 24, "right_big_toe": 21, "right_heel": 25},
+}
 
 
 def full_frame_input(image: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
@@ -53,6 +56,7 @@ def main() -> None:
     parser.add_argument("reference", help="fp32 ONNX model, run on CPU")
     parser.add_argument("candidate", help="ONNX model to check, e.g. the fp16 one")
     parser.add_argument("--provider", choices=["cpu", "coreml"], default="coreml")
+    parser.add_argument("--layout", choices=list(FEET), default="wholebody", help="keypoint layout of the model")
     parser.add_argument("images", nargs="+")
     args = parser.parse_args()
 
@@ -73,7 +77,7 @@ def main() -> None:
         candidate_ms.append(can_time)
         ref_points, ref_scores = decode(ref_x[0], ref_y[0], matrix)
         can_points, can_scores = decode(can_x[0], can_y[0], matrix)
-        indices = list(FEET.values())
+        indices = list(FEET[args.layout].values())
         point_diff = float(np.linalg.norm(ref_points[indices] - can_points[indices], axis=-1).max())
         score_diff = float(np.abs(ref_scores[indices] - can_scores[indices]).max())
         worst = max(worst, point_diff)

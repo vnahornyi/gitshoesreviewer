@@ -140,3 +140,15 @@ Where the models agree, the axis differs by only 2–5°. The small models fall 
 
 Overall `rtmw-full` found 71% of feet at a 6.0° median axis error; `rtmpose-m-feet` found 65% at 5.5°, in 18 ms instead of 66 ms on the Mac. PCK@0.10 is 25–40% for both, and label noise is the main suspect. **Pick for the app: RTMW x-l first (quality), `rtmpose-m-feet` as the fallback if the iPhone 11 cannot hold it in live mode.** The labeler now captions the points ("toe", "heel — back of the heel, not the ankle bone") so the next labeling pass is cleaner.
 
+
+**2026-09-19, refinement on a crop around the feet.** On the iPhone 11, RTMPose-m runs at 30 fps, and RTMW x-l takes about 150 ms per frame. The mirror view is accurate. Looking down at your own feet (`top`, `close`), the feet jump and disappear. `rtmpose-m-refine` and `rtmw-refine` run the model a second time on a box around the feet found in the first pass (`context` = box side ÷ spread of the feet points). The table shows the share of feet detected and the median axis error:
+
+| candidate | top | close | mirror-lower | third |
+|---|---|---|---|---|
+| `rtmpose-m-feet` | 55% / 7.7° | 48% / 7.1° | 100% / 3.3° | 91% / 2.1° |
+| `rtmpose-m-refine` (context 2) | 63% / 8.9° | 39% / 5.2° | 100% / 2.7° | 96% / 3.9° |
+| `rtmpose-m-refine3` (context 3) | 60% / 8.2° | 45% / 4.9° | 100% / 5.3° | 91% / 3.7° |
+| `rtmw-full` | 70% / 8.6° | 52% / 4.7° | 100% / 5.2° | 91% / 4.2° |
+| `rtmw-refine` | 78% / 9.3° | 40% / 5.3° | 100% / 5.2° | 91% / 3.6° |
+
+A crop is not the fix. It gains 8 points of detection on `top` and loses them on `close`. The body models do not know the self-view of feet. The app now tracks feet over time instead: a foot starts at score 0.3 and is kept down to 0.15, a lost foot is held for 300 ms, points are One-Euro smoothed, and feet are matched by position rather than by the model's left/right label. If the self-view stays too weak, the next step is a foot-specific model fine-tuned on labeled `top` and `close` frames.

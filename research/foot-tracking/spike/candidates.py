@@ -53,6 +53,7 @@ def _download(url: str, name: str) -> Path:
 
 
 MIN_AXIS_SCORE = 0.25
+REFINE_MIN_SCORE = 0.1
 
 
 def _axis_score(foot: Foot) -> float:
@@ -129,6 +130,34 @@ def rtmw_full_frame(url: str = RTMW_POSE_URL, mapping=COCO_WHOLEBODY_FEET) -> Pr
     def predict(image: np.ndarray, _stem: str) -> list[Foot]:
         height, width = image.shape[:2]
         keypoints, scores = model(image, bboxes=[[0, 0, width, height]])
+        return _feet_from(keypoints[0], scores[0], mapping)
+
+    return predict
+
+
+def _feet_box(keypoints: np.ndarray, scores: np.ndarray, mapping, image_size: tuple[int, int], context: float) -> list[float] | None:
+    indices = [i for side in mapping for i in side.values()]
+    seen = [keypoints[i] for i in indices if scores[i] >= REFINE_MIN_SCORE]
+    if len(seen) < 2:
+        return None
+    points = np.array(seen)
+    center = (points.min(axis=0) + points.max(axis=0)) / 2
+    half = max(np.ptp(points[:, 0]), np.ptp(points[:, 1]), 1.0) * context / 2
+    width, height = image_size
+    return [max(0.0, center[0] - half), max(0.0, center[1] - half), min(width, center[0] + half), min(height, center[1] + half)]
+
+
+def refined_on_feet(url: str, mapping, context: float = 2.0) -> Predictor:
+    from rtmlib import RTMPose
+
+    model = RTMPose(url, model_input_size=(192, 256), backend="onnxruntime", device="cpu")
+
+    def predict(image: np.ndarray, _stem: str) -> list[Foot]:
+        height, width = image.shape[:2]
+        keypoints, scores = model(image, bboxes=[[0, 0, width, height]])
+        box = _feet_box(keypoints[0], scores[0], mapping, (width, height), context)
+        if box is not None:
+            keypoints, scores = model(image, bboxes=[box])
         return _feet_from(keypoints[0], scores[0], mapping)
 
     return predict
@@ -214,6 +243,9 @@ CANDIDATES: dict[str, Callable[[], Predictor]] = {
     "rtmw-m-full": lambda: rtmw_full_frame(RTMW_M_POSE_URL),
     "rtmpose-m-feet": lambda: rtmw_full_frame(RTMPOSE_M_HALPE26_URL, HALPE26_FEET),
     "rtmpose-s-feet": lambda: rtmw_full_frame(RTMPOSE_S_HALPE26_URL, HALPE26_FEET),
+    "rtmpose-m-refine": lambda: refined_on_feet(RTMPOSE_M_HALPE26_URL, HALPE26_FEET),
+    "rtmpose-m-refine3": lambda: refined_on_feet(RTMPOSE_M_HALPE26_URL, HALPE26_FEET, context=3.0),
+    "rtmw-refine": lambda: refined_on_feet(RTMW_POSE_URL, COCO_WHOLEBODY_FEET),
     "geometric": lambda: geometric_from_mask(MASKS / "person"),
     "geometric-fg": lambda: geometric_from_mask(MASKS / "foreground"),
 }
