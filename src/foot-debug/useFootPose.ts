@@ -16,6 +16,7 @@ export type FootPoseSample = {
   frameWidth: number;
   frameHeight: number;
   isMirrored: boolean;
+  cameraMatrix?: number[];
 };
 
 const FPS_WINDOW = 30;
@@ -69,6 +70,7 @@ export function useFootPose(model: FootModel) {
           frameWidth: frame.width,
           frameHeight: frame.height,
           isMirrored: frame.isMirrored,
+          cameraMatrix: frame.cameraIntrinsicMatrix,
         });
       } catch {
         scheduleOnRN(setStatus, detector.status);
@@ -82,6 +84,7 @@ export function useFootPose(model: FootModel) {
   const frameOutput = useFrameOutput({
     pixelFormat: 'rgb',
     enablePhysicalBufferRotation: true,
+    enableCameraMatrixDelivery: true,
     onFrame,
   });
 

@@ -1822,6 +1822,30 @@ PODS:
     - ReactCommon/turbomodule/core
     - ReactNativeDependencies
     - Yoga
+  - ShoeStage (0.0.1):
+    - hermes-engine
+    - NitroModules
+    - RCTRequired
+    - RCTTypeSafety
+    - React-bridging
+    - React-callinvoker
+    - React-Core
+    - React-Core-prebuilt
+    - React-debug
+    - React-Fabric
+    - React-featureflags
+    - React-graphics
+    - React-ImageManager
+    - React-jsi
+    - React-NativeModulesApple
+    - React-RCTFabric
+    - React-renderercss
+    - React-rendererdebug
+    - React-utils
+    - ReactCodegen
+    - ReactCommon/turbomodule/core
+    - ReactNativeDependencies
+    - Yoga
   - SocketRocket (0.7.1):
     - ReactNativeDependencies
   - VisionCamera (5.2.3):
@@ -1970,6 +1994,7 @@ DEPENDENCIES:
   - ReactCommon/turbomodule/core (from `../node_modules/react-native/ReactCommon`)
   - ReactNativeDependencies (from `../node_modules/react-native/third-party-podspecs/ReactNativeDependencies.podspec`)
   - RNWorklets (from `../node_modules/react-native-worklets`)
+  - ShoeStage (from `../node_modules/react-native-shoe-stage`)
   - SocketRocket (from `build/rndeps-facades/SocketRocket`)
   - VisionCamera (from `../node_modules/react-native-vision-camera`)
   - VisionCameraWorklets (from `../node_modules/react-native-vision-camera-worklets`)
@@ -2158,6 +2183,8 @@ EXTERNAL SOURCES:
     :podspec: "../node_modules/react-native/third-party-podspecs/ReactNativeDependencies.podspec"
   RNWorklets:
     :path: "../node_modules/react-native-worklets"
+  ShoeStage:
+    :path: "../node_modules/react-native-shoe-stage"
   SocketRocket:
     :path: build/rndeps-facades/SocketRocket
   VisionCamera:
@@ -2258,6 +2285,7 @@ SPEC CHECKSUMS:
   ReactCommon: 749169e12aa3461a3df3656a00e48dbe0456b2d6
   ReactNativeDependencies: 94c922c39e0e6150ee9ad05e2ca1946e0ef55783
   RNWorklets: e00d9fe0f91ef81e6056248566c84501506ad539
+  ShoeStage: b14382413beea5c7766e5e7f08d9de4cd079b830
   SocketRocket: 37aec555668fb852ec12e3c0de59a86ca58f0871
   VisionCamera: 1b76ec326db3fb65e3a840a12383144a5c374db2
   VisionCameraWorklets: afbba6f1cebff89e678353ab9b6c5ffc493d8ae1

@@ -10,6 +10,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { FootModel } from 'react-native-foot-pose';
 import { Camera, useCameraPermission } from 'react-native-vision-camera';
 import { FootOverlay } from './FootOverlay';
+import { ShoeLayer } from './ShoeLayer';
 import type { SceneMode, Size } from './footAxes';
 import { useFootPose } from './useFootPose';
 
@@ -18,6 +19,14 @@ type CameraPosition = 'back' | 'front';
 const MODEL_LABELS: Record<FootModel, string> = {
   'rtmpose-m': 'RTMPose-m',
   'rtmw-x-l': 'RTMW x-l',
+};
+
+type Layer = 'axes' | 'shoe' | 'both';
+
+const LAYER_LABELS: Record<Layer, string> = {
+  axes: 'Стрілки',
+  shoe: '3D',
+  both: '3D + точки',
 };
 
 const SCENE_LABELS: Record<SceneMode, string> = {
@@ -93,6 +102,7 @@ function LiveFeet() {
   const [scene, setScene] = useState<SceneMode>('direct');
   const [position, setPosition] = useState<CameraPosition>('back');
   const [model, setModel] = useState<FootModel>('rtmpose-m');
+  const [layer, setLayer] = useState<Layer>('axes');
   const [view, setView] = useState<Size | null>(null);
   const { frameOutput, sample, feet, status, fps } = useFootPose(model);
 
@@ -111,7 +121,10 @@ function LiveFeet() {
           outputs={[frameOutput]}
           resizeMode="contain"
         />
-        {sample && view ? (
+        {sample && view && layer !== 'axes' && position === 'back' ? (
+          <ShoeLayer feet={feet} sample={sample} view={view} />
+        ) : null}
+        {sample && view && layer !== 'shoe' ? (
           <FootOverlay
             feet={feet}
             frame={{ width: sample.frameWidth, height: sample.frameHeight }}
@@ -128,6 +141,7 @@ function LiveFeet() {
           preprocessMs={sample?.preprocessMs}
           inferenceMs={sample?.inferenceMs}
         />
+        <Toggle value={layer} options={LAYER_LABELS} onChange={setLayer} />
         <Toggle value={model} options={MODEL_LABELS} onChange={setModel} />
         <Toggle value={scene} options={SCENE_LABELS} onChange={setScene} />
         <Toggle
