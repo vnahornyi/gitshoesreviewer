@@ -1,7 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createFootPoseDetector, type FootModel } from 'react-native-foot-pose';
 import { createPersonMatte, createSceneLight } from 'react-native-shoe-stage';
-import { useFrameOutput, type Frame } from 'react-native-vision-camera';
+import {
+  CommonResolutions,
+  useFrameOutput,
+  type Frame,
+} from 'react-native-vision-camera';
 import { scheduleOnRN } from 'react-native-worklets';
 import {
   trackedFeet,
@@ -101,7 +105,10 @@ export function useFootPose(
     [detector, matte, light, onSample],
   );
 
+  // The pose model shrinks the whole frame to 192×256, so a bigger frame only costs preprocessing time.
   const frameOutput = useFrameOutput({
+    targetResolution: CommonResolutions.VGA_16_9,
+    enablePreviewSizedOutputBuffers: true,
     pixelFormat: 'rgb',
     enablePhysicalBufferRotation: true,
     enableCameraMatrixDelivery: true,

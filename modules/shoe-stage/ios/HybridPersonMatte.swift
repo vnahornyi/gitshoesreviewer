@@ -1,5 +1,6 @@
 import Accelerate
 import AVFoundation
+import CoreML
 import Foundation
 import NitroModules
 import QuartzCore
@@ -48,6 +49,7 @@ final class HybridPersonMatte: HybridPersonMatteSpec {
     let request = VNGeneratePersonSegmentationRequest()
     request.qualityLevel = .balanced
     request.outputPixelFormat = kCVPixelFormatType_OneComponent8
+    HybridPersonMatte.keepOffGPU(request)
     return request
   }()
   private let queue = DispatchQueue(label: "shoe-stage.person-matte", qos: .userInitiated)
@@ -137,6 +139,19 @@ final class HybridPersonMatte: HybridPersonMatteSpec {
     )
     guard vImageScale_ARGB8888(&from, &to, nil, vImage_Flags(kvImageNoFlags)) == kvImageNoError else { return nil }
     return copy
+  }
+
+  // Segmentation runs beside the pose model, which uses the GPU through Core ML; both on the GPU at once crashed the A13
+  // driver (AGXA13FamilyFunctionHandle). Prefer the Neural Engine, else the CPU.
+  private static func keepOffGPU(_ request: VNRequest) {
+    guard let stages = try? request.supportedComputeStageDevices else { return }
+    for (stage, devices) in stages {
+      let neuralEngine = devices.first { if case .neuralEngine = $0 { return true } else { return false } }
+      let cpu = devices.first { if case .cpu = $0 { return true } else { return false } }
+      if let device = neuralEngine ?? cpu {
+        request.setComputeDevice(device, for: stage)
+      }
+    }
   }
 
   // Nearest-neighbour copy into a buffer with the frame's aspect ratio (Vision's mask may use another one).

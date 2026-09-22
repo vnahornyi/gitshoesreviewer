@@ -80,7 +80,9 @@ function Stats({
   preprocessMs,
   inferenceMs,
   matteMs,
+  frame,
 }: {
+  frame?: Size;
   status: string;
   fps: number;
   preprocessMs?: number;
@@ -95,6 +97,7 @@ function Stats({
       {fps.toFixed(1)} fps · модель {inferenceMs?.toFixed(0) ?? '–'} мс ·
       підготовка {preprocessMs?.toFixed(0) ?? '–'} мс
       {matteMs === undefined ? '' : ` · маска ${matteMs.toFixed(0)} мс`}
+      {frame ? ` · ${frame.width}×${frame.height}` : ''}
     </Text>
   );
 }
@@ -120,8 +123,8 @@ function LiveFeet() {
   const [position, setPosition] = useState<CameraPosition>('back');
   const [model, setModel] = useState<FootModel>('rtmpose-m');
   const [layer, setLayer] = useState<Layer>('axes');
-  const [leg, setLeg] = useState<Leg>('matte');
-  const [look, setLook] = useState<Look>('camera');
+  const [leg, setLeg] = useState<Leg>('cylinder');
+  const [look, setLook] = useState<Look>('clean');
   const [view, setView] = useState<Size | null>(null);
   const showShoe = layer !== 'axes' && position === 'back';
   const legMatte = showShoe && leg === 'matte';
@@ -171,6 +174,11 @@ function LiveFeet() {
           preprocessMs={sample?.preprocessMs}
           inferenceMs={sample?.inferenceMs}
           matteMs={legMatte ? sample?.matteMs : undefined}
+          frame={
+            sample
+              ? { width: sample.frameWidth, height: sample.frameHeight }
+              : undefined
+          }
         />
         <Toggle value={layer} options={LAYER_LABELS} onChange={setLayer} />
         {showShoe ? (

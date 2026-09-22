@@ -15,7 +15,7 @@ Pod::Spec.new do |s|
 
   s.source_files = ["ios/**/*.{swift}"]
   s.resources    = ["shoes/*.usdz"]
-  s.frameworks   = ["RealityKit", "CoreMotion", "Vision", "CoreImage"]
+  s.frameworks   = ["RealityKit", "CoreMotion", "Vision", "Metal"]
 
   load 'nitrogen/generated/ios/ShoeStage+autolinking.rb'
   add_nitrogen_files(s)

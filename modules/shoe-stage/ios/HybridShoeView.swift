@@ -1,6 +1,6 @@
 import CoreGraphics
-import CoreImage
 import Foundation
+import Metal
 import NitroModules
 import RealityKit
 import UIKit
@@ -38,7 +38,6 @@ private enum Look {
   static let tintStrength: Float = 0.6
   // Per-frame smoothing of the light, so it follows exposure changes without flicker.
   static let smoothing: Float = 0.15
-  static let blurRadius: Double = 0.7
   static let grainAtReference: Float = 0.025
   static let grainRange: ClosedRange<Float> = 0.01...0.07
 }
@@ -72,7 +71,7 @@ final class HybridShoeView: HybridShoeViewSpec {
   private let fill = DirectionalLight()
   private var tone = SIMD4<Float>(1, 1, 1, 1)
   private let look = CameraLook()
-  private var ciContext: CIContext?
+  private var cameraLookPipeline: MTLComputePipelineState?
 
   var view: UIView { arView }
 
@@ -206,47 +205,70 @@ final class HybridShoeView: HybridShoeViewSpec {
     fill.light.intensity = Look.fillIntensity * tone.w
   }
 
-  // A camera never shows a perfectly sharp, noiseless edge: soften the render a little and add moving grain on the shoe only.
+  // A camera never shows a perfectly sharp, noiseless edge: soften the render a little and add moving grain on the shoe
+  // only. A small Metal kernel compiled at runtime rather than Core Image, whose kernels crash on A13 GPUs here.
   private func postProcess(_ context: ARView.PostProcessContext) {
-    let passThrough = {
+    guard let grain = look.current(),
+          let pipeline = cameraLook(on: context.device),
+          let encoder = context.commandBuffer.makeComputeCommandEncoder() else {
       guard let blit = context.commandBuffer.makeBlitCommandEncoder() else { return }
       blit.copy(from: context.sourceColorTexture, to: context.targetColorTexture)
       blit.endEncoding()
-    }
-    guard let grain = look.current(), let source = CIImage(mtlTexture: context.sourceColorTexture) else {
-      passThrough()
       return
     }
-    if ciContext == nil {
-      ciContext = CIContext(mtlDevice: context.device, options: [.workingColorSpace: NSNull(), .outputColorSpace: NSNull()])
-    }
-    let extent = source.extent
-    let blurred = source.clampedToExtent().applyingGaussianBlur(sigma: Look.blurRadius).cropped(to: extent)
-    let shift = CGAffineTransform(translationX: CGFloat.random(in: 0...512), y: CGFloat.random(in: 0...512))
-    let noise = CIFilter(name: "CIRandomGenerator")!.outputImage!
-      .transformed(by: shift)
-      .applyingFilter("CIColorMatrix", parameters: [
-        "inputRVector": CIVector(x: CGFloat(grain), y: 0, z: 0, w: 0),
-        "inputGVector": CIVector(x: CGFloat(grain), y: 0, z: 0, w: 0),
-        "inputBVector": CIVector(x: CGFloat(grain), y: 0, z: 0, w: 0),
-        "inputAVector": CIVector(x: 0, y: 0, z: 0, w: 0),
-        "inputBiasVector": CIVector(x: -CGFloat(grain) / 2, y: -CGFloat(grain) / 2, z: -CGFloat(grain) / 2, w: 0),
-      ])
-      .cropped(to: extent)
-    // Keep the grain inside the shoe's alpha so the transparent background stays clean.
-    let masked = noise.applyingFilter("CIBlendWithAlphaMask", parameters: [
-      kCIInputBackgroundImageKey: CIImage.empty().cropped(to: extent),
-      kCIInputMaskImageKey: blurred,
-    ])
-    let output = masked.applyingFilter("CIAdditionCompositing", parameters: [kCIInputBackgroundImageKey: blurred])
-    let destination = CIRenderDestination(mtlTexture: context.targetColorTexture, commandBuffer: context.commandBuffer)
-    destination.isFlipped = false
-    do {
-      _ = try ciContext?.startTask(toRender: output, to: destination)
-    } catch {
-      passThrough()
-    }
+    var parameters = SIMD2<Float>(grain, Float(UInt32.random(in: 0..<UInt32(1 << 20))))
+    encoder.setComputePipelineState(pipeline)
+    encoder.setTexture(context.sourceColorTexture, index: 0)
+    encoder.setTexture(context.targetColorTexture, index: 1)
+    encoder.setBytes(&parameters, length: MemoryLayout<SIMD2<Float>>.size, index: 0)
+    let group = MTLSize(width: 16, height: 16, depth: 1)
+    let target = context.targetColorTexture
+    encoder.dispatchThreadgroups(
+      MTLSize(width: (target.width + 15) / 16, height: (target.height + 15) / 16, depth: 1),
+      threadsPerThreadgroup: group
+    )
+    encoder.endEncoding()
   }
+
+  private func cameraLook(on device: MTLDevice) -> MTLComputePipelineState? {
+    if let cameraLookPipeline { return cameraLookPipeline }
+    guard let library = try? device.makeLibrary(source: Self.cameraLookSource, options: nil),
+          let function = library.makeFunction(name: "cameraLook") else { return nil }
+    cameraLookPipeline = try? device.makeComputePipelineState(function: function)
+    return cameraLookPipeline
+  }
+
+  // A 3×3 binomial blur (about 0.8 px) and hashed grain scaled by the shoe's alpha, so the clear background stays clear.
+  private static let cameraLookSource = """
+  #include <metal_stdlib>
+  using namespace metal;
+
+  static float hash(uint2 p, uint seed) {
+    uint h = p.x * 374761393u + p.y * 668265263u + seed * 2246822519u;
+    h = (h ^ (h >> 13)) * 1274126177u;
+    h ^= h >> 16;
+    return float(h & 0xffffffu) / 16777215.0;
+  }
+
+  kernel void cameraLook(texture2d<half, access::read> source [[texture(0)]],
+                         texture2d<half, access::write> target [[texture(1)]],
+                         constant float2 &parameters [[buffer(0)]],
+                         uint2 gid [[thread_position_in_grid]]) {
+    if (gid.x >= target.get_width() || gid.y >= target.get_height()) return;
+    int2 last = int2(source.get_width(), source.get_height()) - 1;
+    half4 sum = 0.0h;
+    for (int dy = -1; dy <= 1; dy++) {
+      for (int dx = -1; dx <= 1; dx++) {
+        half weight = half((2 - abs(dx)) * (2 - abs(dy)));
+        sum += source.read(uint2(clamp(int2(gid) + int2(dx, dy), int2(0), last))) * weight;
+      }
+    }
+    half4 color = sum / 16.0h;
+    half noise = half((hash(gid, uint(parameters.y)) - 0.5) * parameters.x);
+    color.rgb = clamp(color.rgb + noise * color.a, half3(0.0h), half3(color.a));
+    target.write(color, gid);
+  }
+  """
 
   // Makes the shoe transparent where the camera shows the person above the shoe's collar, so the real leg comes out of it.
   private func applyMatte(_ poses: [ShoePose]) {
