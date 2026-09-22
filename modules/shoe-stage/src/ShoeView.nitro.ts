@@ -16,6 +16,8 @@ export interface ShoeViewProps extends HybridViewProps {
   model: string;
   verticalFovDegrees: number;
   shoes: ShoePose[];
+  // Cut the shoe where the person matte shows the leg above the shoe's collar; otherwise a fixed shin cylinder does it.
+  legMatte: boolean;
 }
 
 export interface ShoeViewMethods extends HybridViewMethods {}

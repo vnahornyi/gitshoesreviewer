@@ -159,6 +159,17 @@ open class HybridShoeViewSpec_cxx {
       self.__implementation.shoes = newValue.map({ __item in __item })
     }
   }
+  
+  public final var legMatte: Bool {
+    @inline(__always)
+    get {
+      return self.__implementation.legMatte
+    }
+    @inline(__always)
+    set {
+      self.__implementation.legMatte = newValue
+    }
+  }
 
   // Methods
   public final func getView() -> UnsafeMutableRawPointer {

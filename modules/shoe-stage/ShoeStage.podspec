@@ -15,12 +15,13 @@ Pod::Spec.new do |s|
 
   s.source_files = ["ios/**/*.{swift}"]
   s.resources    = ["shoes/*.usdz"]
-  s.frameworks   = ["RealityKit", "CoreMotion"]
+  s.frameworks   = ["RealityKit", "CoreMotion", "Vision"]
 
   load 'nitrogen/generated/ios/ShoeStage+autolinking.rb'
   add_nitrogen_files(s)
 
   s.dependency 'React-jsi'
   s.dependency 'React-callinvoker'
+  s.dependency 'VisionCamera'
   install_modules_dependencies(s)
 end

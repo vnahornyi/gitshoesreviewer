@@ -10,6 +10,10 @@
 // Forward declarations of C++ defined types
 // Forward declaration of `HybridDeviceGravitySpec` to properly resolve imports.
 namespace margelo::nitro::shoestage { class HybridDeviceGravitySpec; }
+// Forward declaration of `HybridFrameSpec` to properly resolve imports.
+namespace margelo::nitro::camera { class HybridFrameSpec; }
+// Forward declaration of `HybridPersonMatteSpec` to properly resolve imports.
+namespace margelo::nitro::shoestage { class HybridPersonMatteSpec; }
 // Forward declaration of `HybridShoeViewSpec` to properly resolve imports.
 namespace margelo::nitro::shoestage { class HybridShoeViewSpec; }
 // Forward declaration of `ShoePose` to properly resolve imports.
@@ -20,15 +24,21 @@ namespace margelo::nitro::shoestage { enum class ShoeSide; }
 // Forward declarations of Swift defined types
 // Forward declaration of `HybridDeviceGravitySpec_cxx` to properly resolve imports.
 namespace ShoeStage { class HybridDeviceGravitySpec_cxx; }
+// Forward declaration of `HybridFrameSpec_cxx` to properly resolve imports.
+namespace VisionCamera { class HybridFrameSpec_cxx; }
+// Forward declaration of `HybridPersonMatteSpec_cxx` to properly resolve imports.
+namespace ShoeStage { class HybridPersonMatteSpec_cxx; }
 // Forward declaration of `HybridShoeViewSpec_cxx` to properly resolve imports.
 namespace ShoeStage { class HybridShoeViewSpec_cxx; }
 
 // Include C++ defined types
 #include "HybridDeviceGravitySpec.hpp"
+#include "HybridPersonMatteSpec.hpp"
 #include "HybridShoeViewSpec.hpp"
 #include "ShoePose.hpp"
 #include "ShoeSide.hpp"
 #include <NitroModules/Result.hpp>
+#include <VisionCamera/HybridFrameSpec.hpp>
 #include <exception>
 #include <memory>
 #include <vector>
@@ -69,6 +79,39 @@ namespace margelo::nitro::shoestage::bridge::swift {
   }
   inline Result_std__vector_double__ create_Result_std__vector_double__(const std::exception_ptr& error) noexcept {
     return Result<std::vector<double>>::withError(error);
+  }
+  
+  // pragma MARK: std::shared_ptr<margelo::nitro::camera::HybridFrameSpec>
+  /**
+   * Specialized version of `std::shared_ptr<margelo::nitro::camera::HybridFrameSpec>`.
+   */
+  using std__shared_ptr_margelo__nitro__camera__HybridFrameSpec_ = std::shared_ptr<margelo::nitro::camera::HybridFrameSpec>;
+  std::shared_ptr<margelo::nitro::camera::HybridFrameSpec> create_std__shared_ptr_margelo__nitro__camera__HybridFrameSpec_(void* NON_NULL swiftUnsafePointer) noexcept;
+  void* NON_NULL get_std__shared_ptr_margelo__nitro__camera__HybridFrameSpec_(std__shared_ptr_margelo__nitro__camera__HybridFrameSpec_ cppType);
+  
+  // pragma MARK: std::weak_ptr<margelo::nitro::camera::HybridFrameSpec>
+  using std__weak_ptr_margelo__nitro__camera__HybridFrameSpec_ = std::weak_ptr<margelo::nitro::camera::HybridFrameSpec>;
+  inline std__weak_ptr_margelo__nitro__camera__HybridFrameSpec_ weakify_std__shared_ptr_margelo__nitro__camera__HybridFrameSpec_(const std::shared_ptr<margelo::nitro::camera::HybridFrameSpec>& strong) noexcept { return strong; }
+  
+  // pragma MARK: std::shared_ptr<HybridPersonMatteSpec>
+  /**
+   * Specialized version of `std::shared_ptr<HybridPersonMatteSpec>`.
+   */
+  using std__shared_ptr_HybridPersonMatteSpec_ = std::shared_ptr<HybridPersonMatteSpec>;
+  std::shared_ptr<HybridPersonMatteSpec> create_std__shared_ptr_HybridPersonMatteSpec_(void* NON_NULL swiftUnsafePointer) noexcept;
+  void* NON_NULL get_std__shared_ptr_HybridPersonMatteSpec_(std__shared_ptr_HybridPersonMatteSpec_ cppType);
+  
+  // pragma MARK: std::weak_ptr<HybridPersonMatteSpec>
+  using std__weak_ptr_HybridPersonMatteSpec_ = std::weak_ptr<HybridPersonMatteSpec>;
+  inline std__weak_ptr_HybridPersonMatteSpec_ weakify_std__shared_ptr_HybridPersonMatteSpec_(const std::shared_ptr<HybridPersonMatteSpec>& strong) noexcept { return strong; }
+  
+  // pragma MARK: Result<double>
+  using Result_double_ = Result<double>;
+  inline Result_double_ create_Result_double_(double value) noexcept {
+    return Result<double>::withValue(std::move(value));
+  }
+  inline Result_double_ create_Result_double_(const std::exception_ptr& error) noexcept {
+    return Result<double>::withError(error);
   }
   
   // pragma MARK: std::vector<ShoePose>

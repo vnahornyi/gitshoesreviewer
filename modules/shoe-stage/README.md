@@ -3,6 +3,8 @@
 It draws shoe models at given poses over the camera preview with RealityKit (`ARView` in non-AR mode, clear background). It also exposes the device gravity from CoreMotion, which the app uses to put a standing foot flat on the floor.
 
 - `<ShoeView model shoes verticalFovDegrees />`: `model` names a pair of bundled files `shoes/<model>-left.usdz` and `shoes/<model>-right.usdz`. Each entry in `shoes` is `{ id, side, transform }`, where `transform` is a column-major 4×4 matrix from the normalized shoe (heel at the origin, sole on `y = 0`, toe along `+Z`, length 1) to RealityKit camera space (x right, y up, looking down −z). Size the view to the camera frame's content rect so its aspect matches the frame, and pass the frame's vertical field of view.
+- `legMatte`: when `true` and a fresh person matte exists (at most 0.3 s old), the view masks itself out where the camera shows the person above each shoe's collar, in a strip around the shin. The real leg from the preview then comes out of the shoe. Otherwise a fixed shin cylinder occludes the back of the shoe.
+- `createPersonMatte().update(frame)` runs Apple Vision person segmentation (`.balanced`) on a VisionCamera frame inside the frame processor. It keeps the result, at most 256 rows, for `ShoeView` and returns the milliseconds it took. The frame must be upright (`enablePhysicalBufferRotation`), as for `foot-pose`.
 - `createDeviceGravity().current()` returns the latest CoreMotion gravity in device axes.
 
 Shoe files come from `tools/asset-pipeline` (`normalize.mjs`, then `glb2usdz.py`, plus `--mirror` for the other foot). Their licenses are in `shoes/LICENSES.md`.

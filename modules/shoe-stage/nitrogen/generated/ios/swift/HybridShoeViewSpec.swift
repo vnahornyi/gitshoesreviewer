@@ -13,6 +13,7 @@ public protocol HybridShoeViewSpec_protocol: HybridObject, HybridView {
   var model: String { get set }
   var verticalFovDegrees: Double { get set }
   var shoes: [ShoePose] { get set }
+  var legMatte: Bool { get set }
 
   // Methods
   

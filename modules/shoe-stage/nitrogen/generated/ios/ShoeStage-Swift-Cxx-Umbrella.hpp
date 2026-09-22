@@ -10,6 +10,10 @@
 // Forward declarations of C++ defined types
 // Forward declaration of `HybridDeviceGravitySpec` to properly resolve imports.
 namespace margelo::nitro::shoestage { class HybridDeviceGravitySpec; }
+// Forward declaration of `HybridFrameSpec` to properly resolve imports.
+namespace margelo::nitro::camera { class HybridFrameSpec; }
+// Forward declaration of `HybridPersonMatteSpec` to properly resolve imports.
+namespace margelo::nitro::shoestage { class HybridPersonMatteSpec; }
 // Forward declaration of `HybridShoeViewSpec` to properly resolve imports.
 namespace margelo::nitro::shoestage { class HybridShoeViewSpec; }
 // Forward declaration of `ShoePose` to properly resolve imports.
@@ -19,10 +23,12 @@ namespace margelo::nitro::shoestage { enum class ShoeSide; }
 
 // Include C++ defined types
 #include "HybridDeviceGravitySpec.hpp"
+#include "HybridPersonMatteSpec.hpp"
 #include "HybridShoeViewSpec.hpp"
 #include "ShoePose.hpp"
 #include "ShoeSide.hpp"
 #include <NitroModules/Result.hpp>
+#include <VisionCamera/HybridFrameSpec.hpp>
 #include <exception>
 #include <memory>
 #include <string>
@@ -40,6 +46,10 @@ namespace margelo::nitro::shoestage { enum class ShoeSide; }
 // Forward declarations of Swift defined types
 // Forward declaration of `HybridDeviceGravitySpec_cxx` to properly resolve imports.
 namespace ShoeStage { class HybridDeviceGravitySpec_cxx; }
+// Forward declaration of `HybridFrameSpec_cxx` to properly resolve imports.
+namespace VisionCamera { class HybridFrameSpec_cxx; }
+// Forward declaration of `HybridPersonMatteSpec_cxx` to properly resolve imports.
+namespace ShoeStage { class HybridPersonMatteSpec_cxx; }
 // Forward declaration of `HybridShoeViewSpec_cxx` to properly resolve imports.
 namespace ShoeStage { class HybridShoeViewSpec_cxx; }
 

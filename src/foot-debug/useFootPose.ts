@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createFootPoseDetector, type FootModel } from 'react-native-foot-pose';
+import { createPersonMatte } from 'react-native-shoe-stage';
 import { useFrameOutput, type Frame } from 'react-native-vision-camera';
 import { scheduleOnRN } from 'react-native-worklets';
 import {
@@ -13,6 +14,7 @@ export type FootPoseSample = {
   points: number[];
   preprocessMs: number;
   inferenceMs: number;
+  matteMs?: number;
   frameWidth: number;
   frameHeight: number;
   isMirrored: boolean;
@@ -21,8 +23,10 @@ export type FootPoseSample = {
 
 const FPS_WINDOW = 30;
 
-export function useFootPose(model: FootModel) {
+// With `legMatte` the frame is also segmented for ShoeView, which then shows the real leg coming out of the shoe.
+export function useFootPose(model: FootModel, legMatte: boolean) {
   const detector = useMemo(createFootPoseDetector, []);
+  const matte = useMemo(createPersonMatte, []);
   const [sample, setSample] = useState<FootPoseSample | null>(null);
   const [status, setStatus] = useState(detector.status);
   const [fps, setFps] = useState(0);
@@ -63,10 +67,12 @@ export function useFootPose(model: FootModel) {
       'worklet';
       try {
         const result = detector.detect(frame);
+        const matteMs = legMatte ? matte.update(frame) : undefined;
         scheduleOnRN(onSample, {
           points: result.points,
           preprocessMs: result.preprocessMs,
           inferenceMs: result.inferenceMs,
+          matteMs,
           frameWidth: frame.width,
           frameHeight: frame.height,
           isMirrored: frame.isMirrored,
@@ -78,7 +84,7 @@ export function useFootPose(model: FootModel) {
         frame.dispose();
       }
     },
-    [detector, onSample],
+    [detector, matte, legMatte, onSample],
   );
 
   const frameOutput = useFrameOutput({

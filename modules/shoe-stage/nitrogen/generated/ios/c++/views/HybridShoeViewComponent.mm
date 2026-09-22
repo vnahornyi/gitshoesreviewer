@@ -116,6 +116,12 @@ using namespace margelo::nitro::shoestage::views;
           : !newViewProps.shoes.hasSameValue(oldViewProps->shoes)) {
       swiftPart.setShoes(newViewProps.shoes.get());
     }
+    // legMatte: boolean
+    if (oldViewProps == nullptr
+          ? newViewProps.legMatte.isProvided()
+          : !newViewProps.legMatte.hasSameValue(oldViewProps->legMatte)) {
+      swiftPart.setLegMatte(newViewProps.legMatte.get());
+    }
 
     // Update hybridRef if it changed
     if (oldViewProps == nullptr

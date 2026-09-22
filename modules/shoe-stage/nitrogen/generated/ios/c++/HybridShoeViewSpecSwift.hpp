@@ -88,6 +88,12 @@ namespace margelo::nitro::shoestage {
     inline void setShoes(const std::vector<ShoePose>& shoes) noexcept override {
       _swiftPart.setShoes(shoes);
     }
+    inline bool getLegMatte() noexcept override {
+      return _swiftPart.getLegMatte();
+    }
+    inline void setLegMatte(bool legMatte) noexcept override {
+      _swiftPart.setLegMatte(std::forward<decltype(legMatte)>(legMatte));
+    }
 
   public:
     // Methods

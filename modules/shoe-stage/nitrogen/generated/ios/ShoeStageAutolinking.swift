@@ -35,4 +35,16 @@ public final class ShoeStageAutolinking {
   public static func isDeviceGravityRecyclable() -> Bool {
     return HybridDeviceGravity.self is any RecyclableView.Type
   }
+  
+  public static func createPersonMatte() -> bridge.std__shared_ptr_HybridPersonMatteSpec_ {
+    let hybridObject = HybridPersonMatte()
+    return { () -> bridge.std__shared_ptr_HybridPersonMatteSpec_ in
+      let __cxxWrapped = hybridObject.getCxxWrapper()
+      return __cxxWrapped.getCxxPart()
+    }()
+  }
+  
+  public static func isPersonMatteRecyclable() -> Bool {
+    return HybridPersonMatte.self is any RecyclableView.Type
+  }
 }

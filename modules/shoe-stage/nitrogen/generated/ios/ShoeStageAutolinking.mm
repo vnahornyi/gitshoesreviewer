@@ -12,6 +12,7 @@
 
 #include "HybridShoeViewSpecSwift.hpp"
 #include "HybridDeviceGravitySpecSwift.hpp"
+#include "HybridPersonMatteSpecSwift.hpp"
 
 @interface ShoeStageAutolinking : NSObject
 @end
@@ -33,6 +34,13 @@
     "DeviceGravity",
     []() -> std::shared_ptr<HybridObject> {
       std::shared_ptr<HybridDeviceGravitySpec> hybridObject = ShoeStage::ShoeStageAutolinking::createDeviceGravity();
+      return hybridObject;
+    }
+  );
+  HybridObjectRegistry::registerHybridObjectConstructor(
+    "PersonMatte",
+    []() -> std::shared_ptr<HybridObject> {
+      std::shared_ptr<HybridPersonMatteSpec> hybridObject = ShoeStage::ShoeStageAutolinking::createPersonMatte();
       return hybridObject;
     }
   );

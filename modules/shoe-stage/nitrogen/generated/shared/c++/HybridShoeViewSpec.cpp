@@ -20,6 +20,8 @@ namespace margelo::nitro::shoestage {
       prototype.registerHybridSetter("verticalFovDegrees", &HybridShoeViewSpec::setVerticalFovDegrees);
       prototype.registerHybridGetter("shoes", &HybridShoeViewSpec::getShoes);
       prototype.registerHybridSetter("shoes", &HybridShoeViewSpec::setShoes);
+      prototype.registerHybridGetter("legMatte", &HybridShoeViewSpec::getLegMatte);
+      prototype.registerHybridSetter("legMatte", &HybridShoeViewSpec::setLegMatte);
     });
   }
 

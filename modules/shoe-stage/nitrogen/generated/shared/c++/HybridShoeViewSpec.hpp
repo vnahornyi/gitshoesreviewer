@@ -53,6 +53,8 @@ namespace margelo::nitro::shoestage {
       virtual void setVerticalFovDegrees(double verticalFovDegrees) = 0;
       virtual std::vector<ShoePose> getShoes() = 0;
       virtual void setShoes(const std::vector<ShoePose>& shoes) = 0;
+      virtual bool getLegMatte() = 0;
+      virtual void setLegMatte(bool legMatte) = 0;
 
     public:
       // Methods

@@ -25,9 +25,10 @@ type ShoeLayerProps = {
   feet: TrackedFoot[];
   sample: FootPoseSample;
   view: Size;
+  legMatte: boolean;
 };
 
-export function ShoeLayer({ feet, sample, view }: ShoeLayerProps) {
+export function ShoeLayer({ feet, sample, view, legMatte }: ShoeLayerProps) {
   const frame = useMemo(
     () => ({ width: sample.frameWidth, height: sample.frameHeight }),
     [sample.frameWidth, sample.frameHeight],
@@ -62,6 +63,7 @@ export function ShoeLayer({ feet, sample, view }: ShoeLayerProps) {
       model={SHOE_MODEL}
       verticalFovDegrees={verticalFovDegrees(frame, intrinsics)}
       shoes={shoes}
+      legMatte={legMatte}
     />
   );
 }

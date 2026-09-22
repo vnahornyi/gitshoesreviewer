@@ -23,6 +23,7 @@ namespace margelo::nitro::shoestage::views {
     model(nitro::ReactProp<std::string>::fromRawValue("ShoeView", "model", rawProps, sourceProps.model)),
     verticalFovDegrees(nitro::ReactProp<double>::fromRawValue("ShoeView", "verticalFovDegrees", rawProps, sourceProps.verticalFovDegrees)),
     shoes(nitro::ReactProp<std::vector<ShoePose>>::fromRawValue("ShoeView", "shoes", rawProps, sourceProps.shoes)),
+    legMatte(nitro::ReactProp<bool>::fromRawValue("ShoeView", "legMatte", rawProps, sourceProps.legMatte)),
     hybridRef(nitro::ReactProp<std::optional<std::function<void(const std::shared_ptr<HybridShoeViewSpec>& /* ref */)>>>::fromRawValue("ShoeView", "hybridRef", rawProps, sourceProps.hybridRef)) { }
 
   bool HybridShoeViewProps::filterObjectKeys(const std::string& propName) {
@@ -30,6 +31,7 @@ namespace margelo::nitro::shoestage::views {
       case hashString("model"): return true;
       case hashString("verticalFovDegrees"): return true;
       case hashString("shoes"): return true;
+      case hashString("legMatte"): return true;
       case hashString("hybridRef"): return true;
       default: return false;
     }

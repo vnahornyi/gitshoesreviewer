@@ -29,6 +29,13 @@ const LAYER_LABELS: Record<Layer, string> = {
   both: '3D + точки',
 };
 
+type Leg = 'matte' | 'cylinder';
+
+const LEG_LABELS: Record<Leg, string> = {
+  matte: 'Нога: маска',
+  cylinder: 'Нога: циліндр',
+};
+
 const SCENE_LABELS: Record<SceneMode, string> = {
   direct: 'На ноги',
   mirror: 'Дзеркало',
@@ -65,11 +72,13 @@ function Stats({
   fps,
   preprocessMs,
   inferenceMs,
+  matteMs,
 }: {
   status: string;
   fps: number;
   preprocessMs?: number;
   inferenceMs?: number;
+  matteMs?: number;
 }) {
   if (status !== 'ready') {
     return <Text style={styles.stats}>Модель: {status}</Text>;
@@ -78,6 +87,7 @@ function Stats({
     <Text style={styles.stats}>
       {fps.toFixed(1)} fps · модель {inferenceMs?.toFixed(0) ?? '–'} мс ·
       підготовка {preprocessMs?.toFixed(0) ?? '–'} мс
+      {matteMs === undefined ? '' : ` · маска ${matteMs.toFixed(0)} мс`}
     </Text>
   );
 }
@@ -103,8 +113,13 @@ function LiveFeet() {
   const [position, setPosition] = useState<CameraPosition>('back');
   const [model, setModel] = useState<FootModel>('rtmpose-m');
   const [layer, setLayer] = useState<Layer>('axes');
+  const [leg, setLeg] = useState<Leg>('matte');
   const [view, setView] = useState<Size | null>(null);
-  const { frameOutput, sample, feet, status, fps } = useFootPose(model);
+  const showShoe = layer !== 'axes' && position === 'back';
+  const { frameOutput, sample, feet, status, fps } = useFootPose(
+    model,
+    showShoe && leg === 'matte',
+  );
 
   const onLayout = (event: LayoutChangeEvent) => {
     const { width, height } = event.nativeEvent.layout;
@@ -121,8 +136,13 @@ function LiveFeet() {
           outputs={[frameOutput]}
           resizeMode="contain"
         />
-        {sample && view && layer !== 'axes' && position === 'back' ? (
-          <ShoeLayer feet={feet} sample={sample} view={view} />
+        {sample && view && showShoe ? (
+          <ShoeLayer
+            feet={feet}
+            sample={sample}
+            view={view}
+            legMatte={leg === 'matte'}
+          />
         ) : null}
         {sample && view && layer !== 'shoe' ? (
           <FootOverlay
@@ -140,8 +160,12 @@ function LiveFeet() {
           fps={fps}
           preprocessMs={sample?.preprocessMs}
           inferenceMs={sample?.inferenceMs}
+          matteMs={sample?.matteMs}
         />
         <Toggle value={layer} options={LAYER_LABELS} onChange={setLayer} />
+        {showShoe ? (
+          <Toggle value={leg} options={LEG_LABELS} onChange={setLeg} />
+        ) : null}
         <Toggle value={model} options={MODEL_LABELS} onChange={setModel} />
         <Toggle value={scene} options={SCENE_LABELS} onChange={setScene} />
         <Toggle

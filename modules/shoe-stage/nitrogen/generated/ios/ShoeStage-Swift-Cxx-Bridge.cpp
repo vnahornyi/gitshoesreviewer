@@ -9,9 +9,11 @@
 
 // Include C++ implementation defined types
 #include "HybridDeviceGravitySpecSwift.hpp"
+#include "HybridPersonMatteSpecSwift.hpp"
 #include "HybridShoeViewSpecSwift.hpp"
 #include "ShoeStage-Swift-Cxx-Umbrella.hpp"
 #include <NitroModules/NitroDefines.hpp>
+#include <VisionCamera/VisionCamera-Swift-Cxx-Bridge.hpp>
 
 namespace margelo::nitro::shoestage::bridge::swift {
 
@@ -28,6 +30,32 @@ namespace margelo::nitro::shoestage::bridge::swift {
     }
     #endif
     ShoeStage::HybridDeviceGravitySpec_cxx& swiftPart = swiftWrapper->getSwiftPart();
+    return swiftPart.toUnsafe();
+  }
+  
+  // pragma MARK: std::shared_ptr<margelo::nitro::camera::HybridFrameSpec>
+  std::shared_ptr<margelo::nitro::camera::HybridFrameSpec> create_std__shared_ptr_margelo__nitro__camera__HybridFrameSpec_(void* NON_NULL swiftUnsafePointer) noexcept {
+    // Implemented in VisionCamera
+    return margelo::nitro::camera::bridge::swift::create_std__shared_ptr_HybridFrameSpec_(swiftUnsafePointer);
+  }
+  void* NON_NULL get_std__shared_ptr_margelo__nitro__camera__HybridFrameSpec_(std__shared_ptr_margelo__nitro__camera__HybridFrameSpec_ cppType) {
+    // Implemented in VisionCamera
+    return margelo::nitro::camera::bridge::swift::get_std__shared_ptr_HybridFrameSpec_(cppType);
+  }
+  
+  // pragma MARK: std::shared_ptr<HybridPersonMatteSpec>
+  std::shared_ptr<HybridPersonMatteSpec> create_std__shared_ptr_HybridPersonMatteSpec_(void* NON_NULL swiftUnsafePointer) noexcept {
+    ShoeStage::HybridPersonMatteSpec_cxx swiftPart = ShoeStage::HybridPersonMatteSpec_cxx::fromUnsafe(swiftUnsafePointer);
+    return std::make_shared<margelo::nitro::shoestage::HybridPersonMatteSpecSwift>(swiftPart);
+  }
+  void* NON_NULL get_std__shared_ptr_HybridPersonMatteSpec_(std__shared_ptr_HybridPersonMatteSpec_ cppType) {
+    std::shared_ptr<margelo::nitro::shoestage::HybridPersonMatteSpecSwift> swiftWrapper = std::dynamic_pointer_cast<margelo::nitro::shoestage::HybridPersonMatteSpecSwift>(cppType);
+    #ifdef NITRO_DEBUG
+    if (swiftWrapper == nullptr) [[unlikely]] {
+      throw std::runtime_error("Class \"HybridPersonMatteSpec\" is not implemented in Swift!");
+    }
+    #endif
+    ShoeStage::HybridPersonMatteSpec_cxx& swiftPart = swiftWrapper->getSwiftPart();
     return swiftPart.toUnsafe();
   }
   
