@@ -11,7 +11,7 @@ import NitroModules
 /// See ``HybridPersonMatteSpec``
 public protocol HybridPersonMatteSpec_protocol: HybridObject {
   // Properties
-  
+  var enabled: Bool { get set }
 
   // Methods
   func update(frame: (any HybridFrameSpec)) throws -> Double

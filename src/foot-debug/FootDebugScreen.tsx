@@ -124,8 +124,9 @@ function LiveFeet() {
   const [look, setLook] = useState<Look>('camera');
   const [view, setView] = useState<Size | null>(null);
   const showShoe = layer !== 'axes' && position === 'back';
+  const legMatte = showShoe && leg === 'matte';
   const { frameOutput, sample, feet, status, fps } = useFootPose(model, {
-    legMatte: showShoe && leg === 'matte',
+    legMatte,
     sceneLight: showShoe && look === 'camera',
   });
 
@@ -169,7 +170,7 @@ function LiveFeet() {
           fps={fps}
           preprocessMs={sample?.preprocessMs}
           inferenceMs={sample?.inferenceMs}
-          matteMs={sample?.matteMs}
+          matteMs={legMatte ? sample?.matteMs : undefined}
         />
         <Toggle value={layer} options={LAYER_LABELS} onChange={setLayer} />
         {showShoe ? (

@@ -23,7 +23,10 @@ const ANKLE_POINT: ShoePoint = { height: 0.28, forward: 0.26 };
 const TOES_MIDPOINT: ShoePoint = { height: 0.08, forward: 0.86 };
 const MIN_DEPTH_M = 0.1;
 const MAX_DEPTH_M = 8;
+// Rays closer to the horizon than this meet the floor too far away to trust.
 const GRAZING = 0.05;
+// Ankle and toes closer than this on the floor give no usable direction.
+const MIN_SPAN_M = 0.02;
 
 // iPhone wide cameras record 16:9 video with about 65° across the long side.
 const FALLBACK_LONG_SIDE_FOV = (65 * Math.PI) / 180;
@@ -69,110 +72,71 @@ function ray(point: Point, frame: Size, k: Intrinsics): Vec3 {
   ];
 }
 
-function inDepthRange(...depths: number[]): boolean {
-  return depths.every(d => d >= MIN_DEPTH_M && d <= MAX_DEPTH_M);
+// Where a ray meets the horizontal plane `height` above the floor, the camera being `cameraHeight` above it.
+function onPlane(
+  direction: Vec3,
+  height: number,
+  up: Vec3,
+  cameraHeight: number,
+): Vec3 | null {
+  const rise = dot(direction, up) / length(direction);
+  if (rise > -GRAZING) {
+    return null;
+  }
+  const depth = (height - cameraHeight) / dot(direction, up);
+  if (depth < MIN_DEPTH_M || depth > MAX_DEPTH_M) {
+    return null;
+  }
+  return scale(direction, depth);
 }
 
-// Seen from the front the model puts the "heel" on the ankle, so the ankle and the toes lead and the heel is the fallback.
+// Every point of a standing foot sits at a known height above the floor, so with gravity and the camera height each
+// image point becomes a 3D point on its own horizontal plane. That holds from any view, the frontal mirror one
+// included, where solving depth from the heel-to-toe length is ill-conditioned. The toes anchor the shoe (they are
+// what must line up in the image) and the ankle, or else the heel, gives its direction.
 export function shoeTransform(
   foot: FootPoints,
   frame: Size,
   intrinsics: Intrinsics,
   gravity: Vec3,
   shoeLengthM: number,
+  cameraHeightM: number,
 ): number[] | null {
   const up = normalize(scale(gravity, -1));
-  const rays = (p: Point) => ray(p, frame, intrinsics);
-  if (foot.ankle) {
-    const toes = foot.smallToe
-      ? {
-          x: (foot.toe.x + foot.smallToe.x) / 2,
-          y: (foot.toe.y + foot.smallToe.y) / 2,
-        }
-      : foot.toe;
-    const front = foot.smallToe ? TOES_MIDPOINT : TOE_POINT;
-    return fromAnkle(rays(foot.ankle), rays(toes), front, up, shoeLengthM);
-  }
-  if (foot.heel) {
-    return fromHeel(rays(foot.heel), rays(foot.toe), up, shoeLengthM);
-  }
-  return null;
-}
+  const place = (point: Point, on: ShoePoint) =>
+    onPlane(
+      ray(point, frame, intrinsics),
+      on.height * shoeLengthM,
+      up,
+      cameraHeightM,
+    );
 
-// The ankle stands a known height above the toes and a known distance behind them along the floor. With gravity that
-// is two equations for the two depths: the height fixes the toe depth given the ankle's, and the floor distance is a
-// quadratic in the ankle depth with exactly one positive root while the height gap is smaller than the distance.
-function fromAnkle(
-  ankleRay: Vec3,
-  toeRay: Vec3,
-  front: ShoePoint,
-  up: Vec3,
-  shoeLengthM: number,
-): number[] | null {
-  const rise = (ANKLE_POINT.height - front.height) * shoeLengthM;
-  const reach = (front.forward - ANKLE_POINT.forward) * shoeLengthM;
-  const ankleUp = dot(ankleRay, up);
-  const toeUp = dot(toeRay, up);
-  if (Math.abs(toeUp) < GRAZING) {
+  const toes = foot.smallToe
+    ? {
+        x: (foot.toe.x + foot.smallToe.x) / 2,
+        y: (foot.toe.y + foot.smallToe.y) / 2,
+      }
+    : foot.toe;
+  const front = foot.smallToe ? TOES_MIDPOINT : TOE_POINT;
+  const back = foot.ankle
+    ? { point: foot.ankle, on: ANKLE_POINT }
+    : foot.heel
+    ? { point: foot.heel, on: HEEL_POINT }
+    : null;
+  if (!back) {
     return null;
   }
-  const flat = (v: Vec3) => sub(v, scale(up, dot(v, up)));
-  // toeDepth = (ankleDepth · ankleUp − rise) / toeUp; the ankle-to-toe floor vector is ankleDepth · a + b.
-  const a = flat(sub(scale(toeRay, ankleUp / toeUp), ankleRay));
-  const b = flat(scale(toeRay, -rise / toeUp));
-  const qa = dot(a, a);
-  const qb = 2 * dot(a, b);
-  const qc = dot(b, b) - reach * reach;
-  const discriminant = qb * qb - 4 * qa * qc;
-  if (qa === 0 || discriminant < 0) {
+  const toe = place(toes, front);
+  const behind = place(back.point, back.on);
+  if (!toe || !behind) {
     return null;
   }
-  const ankleDepth = (-qb + Math.sqrt(discriminant)) / (2 * qa);
-  const toeDepth = (ankleDepth * ankleUp - rise) / toeUp;
-  if (!inDepthRange(ankleDepth, toeDepth)) {
-    return null;
-  }
-  const along = add(scale(a, ankleDepth), b);
-  if (length(along) === 0) {
-    return null;
-  }
-  return placement(
-    scale(ankleRay, ankleDepth),
-    ANKLE_POINT,
-    normalize(along),
-    up,
-    shoeLengthM,
-  );
-}
-
-// A standing foot is flat on the floor, so with gravity known the heel and toe share a height:
-// that pins both depths from two image points and the shoe length, with no iterative solve.
-function fromHeel(
-  heelRay: Vec3,
-  toeRay: Vec3,
-  up: Vec3,
-  shoeLengthM: number,
-): number[] | null {
-  const keypointLength = (TOE_POINT.forward - HEEL_POINT.forward) * shoeLengthM;
-  const heelUp = dot(heelRay, up);
-  const toeUp = dot(toeRay, up);
-  const toeOverHeel = Math.abs(toeUp) > GRAZING ? heelUp / toeUp : 1;
-  const span = length(sub(scale(toeRay, toeOverHeel), heelRay));
-  if (span === 0) {
-    return null;
-  }
-  const heelDepth = keypointLength / span;
-  const toeDepth = heelDepth * toeOverHeel;
-  if (!inDepthRange(heelDepth, toeDepth)) {
-    return null;
-  }
-  const heel = scale(heelRay, heelDepth);
-  const along = sub(scale(toeRay, toeDepth), heel);
+  const along = sub(toe, behind);
   const flat = sub(along, scale(up, dot(along, up)));
-  if (length(flat) === 0) {
+  if (length(flat) < MIN_SPAN_M) {
     return null;
   }
-  return placement(heel, HEEL_POINT, normalize(flat), up, shoeLengthM);
+  return placement(toe, front, normalize(flat), up, shoeLengthM);
 }
 
 // The shoe's model matrix from one known point on it, its forward direction on the floor and up.

@@ -18,6 +18,9 @@ import type { FootPoseSample } from './useFootPose';
 const SHOE_MODEL = 'placeholder-shoe';
 // About EU 43. The catalog's sole length replaces this once real models land.
 const SHOE_LENGTH_M = 0.29;
+// Assumed, not measured: a phone held at chest height, which a mirror keeps. A wrong guess scales the shoe a little
+// but keeps it on the feet in the image.
+const CAMERA_HEIGHT_M = 1.3;
 
 const gravity = createDeviceGravity();
 
@@ -52,6 +55,7 @@ export function ShoeLayer({
       intrinsics,
       down,
       SHOE_LENGTH_M,
+      CAMERA_HEIGHT_M,
     );
     return transform ? [{ id: foot.id, side: foot.side, transform }] : [];
   });

@@ -14,6 +14,8 @@ namespace margelo::nitro::shoestage {
     HybridObject::loadHybridMethods();
     // load custom methods/properties
     registerHybrids(this, [](Prototype& prototype) {
+      prototype.registerHybridGetter("enabled", &HybridPersonMatteSpec::getEnabled);
+      prototype.registerHybridSetter("enabled", &HybridPersonMatteSpec::setEnabled);
       prototype.registerHybridMethod("update", &HybridPersonMatteSpec::update);
     });
   }

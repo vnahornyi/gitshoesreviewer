@@ -10,6 +10,8 @@ import { add, cross, normalize, scale, type Vec3 } from './vec3';
 const frame = { width: 720, height: 1280 };
 const k: Intrinsics = { focal: 1000, cx: 360, cy: 640 };
 const SHOE = 0.29;
+const HEEL_SCENE_HEIGHT = 1.2;
+const FRONTAL_SCENE_HEIGHT = 1.1;
 
 function project(p: Vec3) {
   return {
@@ -29,7 +31,10 @@ function scene() {
   const forward = normalize(
     add(scale(floorForward, Math.cos(yaw)), scale(floorRight, Math.sin(yaw))),
   );
-  const floorPoint = add(scale(up, -1.2), scale(floorForward, 1.5));
+  const floorPoint = add(
+    scale(up, -HEEL_SCENE_HEIGHT),
+    scale(floorForward, 1.5),
+  );
   const heel = add(
     add(floorPoint, scale(up, 0.08 * SHOE)),
     scale(forward, 0.035 * SHOE),
@@ -59,7 +64,7 @@ function frontalScene(yawDegrees: number) {
     add(scale(floorForward, Math.cos(yaw)), scale(floorRight, Math.sin(yaw))),
   );
   const side = cross(up, forward);
-  const origin = add(scale(up, -1.1), scale(floorForward, 2));
+  const origin = add(scale(up, -FRONTAL_SCENE_HEIGHT), scale(floorForward, 2));
   const onShoe = (height: number, along: number, across = 0) =>
     add(
       add(add(origin, scale(up, height * SHOE)), scale(forward, along * SHOE)),
@@ -102,6 +107,7 @@ describe('shoeTransform', () => {
       k,
       s.gravity,
       SHOE,
+      HEEL_SCENE_HEIGHT,
     );
     expect(m).not.toBeNull();
     const [x, y, z] = [flip(s.up), flip(s.forward), flip(s.floorPoint)];
@@ -120,7 +126,11 @@ describe('shoeTransform', () => {
     for (const yaw of [180, 150, 225, 90]) {
       const s = frontalScene(yaw);
       // The image midpoint of the two toes is not the projection of their 3D midpoint: allow half a centimetre.
-      expectPlacement(shoeTransform(s.foot, frame, k, s.gravity, SHOE), s, 2);
+      expectPlacement(
+        shoeTransform(s.foot, frame, k, s.gravity, SHOE, FRONTAL_SCENE_HEIGHT),
+        s,
+        2,
+      );
     }
   });
 
@@ -138,7 +148,42 @@ describe('shoeTransform', () => {
         ),
       ),
     };
-    expectPlacement(shoeTransform(bigToeOnly, frame, k, s.gravity, SHOE), s, 5);
+    expectPlacement(
+      shoeTransform(
+        bigToeOnly,
+        frame,
+        k,
+        s.gravity,
+        SHOE,
+        FRONTAL_SCENE_HEIGHT,
+      ),
+      s,
+      5,
+    );
+  });
+
+  it('keeps the toes on the image toes when the camera height is a guess', () => {
+    const s = frontalScene(160);
+    const toe = project(
+      add(
+        add(s.origin, scale(s.up, 0.08 * SHOE)),
+        scale(s.forward, 0.95 * SHOE),
+      ),
+    );
+    const m = shoeTransform(
+      { ankle: s.foot.ankle, toe },
+      frame,
+      k,
+      s.gravity,
+      SHOE,
+      FRONTAL_SCENE_HEIGHT * 1.25,
+    )!;
+    const local: Vec3 = [0, 0.08, 0.95];
+    const row = (r: number) =>
+      m[r] * local[0] + m[4 + r] * local[1] + m[8 + r] * local[2] + m[12 + r];
+    const seen = project(flip([row(0), row(1), row(2)]));
+    expect(seen.x).toBeCloseTo(toe.x, 6);
+    expect(seen.y).toBeCloseTo(toe.y, 6);
   });
 
   it('keeps a right-handed rotation', () => {
@@ -149,6 +194,7 @@ describe('shoeTransform', () => {
       k,
       s.gravity,
       SHOE,
+      HEEL_SCENE_HEIGHT,
     )!;
     const col = (i: number): Vec3 => [m[i * 4], m[i * 4 + 1], m[i * 4 + 2]];
     const handed = cross(col(0), col(1));
@@ -168,6 +214,7 @@ describe('shoeTransform', () => {
         k,
         level,
         SHOE,
+        HEEL_SCENE_HEIGHT,
       ),
     ).toBeNull();
   });

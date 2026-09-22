@@ -64,7 +64,12 @@ namespace margelo::nitro::shoestage {
 
   public:
     // Properties
-    
+    inline bool getEnabled() noexcept override {
+      return _swiftPart.getEnabled();
+    }
+    inline void setEnabled(bool enabled) noexcept override {
+      _swiftPart.setEnabled(std::forward<decltype(enabled)>(enabled));
+    }
 
   public:
     // Methods

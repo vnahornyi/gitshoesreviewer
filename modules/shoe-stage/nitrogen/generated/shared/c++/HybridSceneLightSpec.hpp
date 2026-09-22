@@ -46,7 +46,8 @@ namespace margelo::nitro::shoestage {
 
     public:
       // Properties
-      
+      virtual bool getEnabled() = 0;
+      virtual void setEnabled(bool enabled) = 0;
 
     public:
       // Methods

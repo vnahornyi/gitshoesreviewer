@@ -122,7 +122,16 @@ open class HybridPersonMatteSpec_cxx {
   }
 
   // Properties
-  
+  public final var enabled: Bool {
+    @inline(__always)
+    get {
+      return self.__implementation.enabled
+    }
+    @inline(__always)
+    set {
+      self.__implementation.enabled = newValue
+    }
+  }
 
   // Methods
   @inline(__always)

@@ -11,7 +11,7 @@ import NitroModules
 /// See ``HybridSceneLightSpec``
 public protocol HybridSceneLightSpec_protocol: HybridObject {
   // Properties
-  
+  var enabled: Bool { get set }
 
   // Methods
   func update(frame: (any HybridFrameSpec)) throws -> Void

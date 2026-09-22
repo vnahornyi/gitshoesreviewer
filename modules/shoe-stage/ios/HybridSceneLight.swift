@@ -36,9 +36,16 @@ final class SceneToneStore {
 final class HybridSceneLight: HybridSceneLightSpec {
   // A sparse grid is enough for an average and costs microseconds.
   private static let grid = 32
+  private let lock = NSLock()
+  private var isEnabled = false
+
+  var enabled: Bool {
+    get { lock.withLock { isEnabled } }
+    set { lock.withLock { isEnabled = newValue } }
+  }
 
   func update(frame: any HybridFrameSpec) throws {
-    guard let frame = frame as? any NativeFrame,
+    guard enabled, let frame = frame as? any NativeFrame,
           let sampleBuffer = frame.sampleBuffer,
           let pixelBuffer = CMSampleBufferGetImageBuffer(sampleBuffer),
           CVPixelBufferGetPixelFormatType(pixelBuffer) == kCVPixelFormatType_32BGRA else { return }

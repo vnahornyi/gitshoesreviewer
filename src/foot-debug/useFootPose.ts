@@ -38,6 +38,12 @@ export function useFootPose(
   const [fps, setFps] = useState(0);
   const [feet, setFeet] = useState<TrackedFoot[]>([]);
   const arrivals = useRef<number[]>([]);
+
+  // The frame processor keeps the closure it started with, so the flags live on the native objects.
+  useEffect(() => {
+    matte.enabled = legMatte;
+    light.enabled = sceneLight;
+  }, [matte, light, legMatte, sceneLight]);
   const tracks = useRef<FootTrack[]>([]);
   const lastId = useRef(0);
 
@@ -72,11 +78,10 @@ export function useFootPose(
     (frame: Frame) => {
       'worklet';
       try {
+        // First, so the background segmentation overlaps with the pose model.
+        const matteMs = matte.update(frame);
+        light.update(frame);
         const result = detector.detect(frame);
-        const matteMs = legMatte ? matte.update(frame) : undefined;
-        if (sceneLight) {
-          light.update(frame);
-        }
         scheduleOnRN(onSample, {
           points: result.points,
           preprocessMs: result.preprocessMs,
@@ -93,7 +98,7 @@ export function useFootPose(
         frame.dispose();
       }
     },
-    [detector, matte, light, legMatte, sceneLight, onSample],
+    [detector, matte, light, onSample],
   );
 
   const frameOutput = useFrameOutput({
