@@ -1,5 +1,6 @@
 import argparse
 import csv
+import os
 import time
 from pathlib import Path
 
@@ -91,6 +92,8 @@ def main():
     parser.add_argument("--limit", type=int, default=0, help="train on the first N samples only (smoke test)")
     parser.add_argument("--renders", action="store_true", help="also train on render/render.py output, validate on it separately")
     parser.add_argument("--init", help="start from this checkpoint")
+    parser.add_argument("--render-repeat", type=int, default=3,
+                        help="with --renders, repeat the render crops so they weigh more against SynFoot's 44k")
     args = parser.parse_args()
 
     device = torch.device("mps" if torch.backends.mps.is_available() else "cpu")
@@ -101,7 +104,8 @@ def main():
     validation_sets = {"": SynFootCrops(validation_ids, False)}
     if args.renders:
         render_train, render_validation = render_split()
-        train_set = ConcatDataset([train_set, RenderCrops(RENDERS, True, render_train)])
+        renders = RenderCrops(RENDERS, True, render_train)
+        train_set = ConcatDataset([train_set] + [renders] * args.render_repeat)
         validation_sets["render_"] = RenderCrops(RENDERS, False, render_validation)
     train_loader = DataLoader(train_set, args.batch, shuffle=True, num_workers=args.workers,
                               persistent_workers=True, drop_last=True)
@@ -155,3 +159,5 @@ def main():
 
 if __name__ == "__main__":
     main()
+    # Persistent DataLoader workers can hang the interpreter's exit on macOS; everything is saved by now.
+    os._exit(0)

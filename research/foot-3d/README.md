@@ -66,6 +66,7 @@ uv run python -m footnet.real                              # RTMPose crop → Fo
 - **Training data.** SynFoot V1 with one scanned foot (`0033-A`) held out for validation. Augmentation mirrors half the feet into right feet, repaints the foot as a sock (plain or striped, keeping the shading), and applies a random crop scale and shift, a full rotation, colour jitter, motion blur and noise.
 - **Losses:** mask BCE plus Dice, heatmap BCE, smooth-L1 on soft-argmax coordinates, and BCE on the side.
 - **Why the coordinate term.** Without it, the heatmaps stay flat for the first epochs. After 400 steps it gives 41 px median against 170 px without it.
+- **Result (2026-09-22).** 20 epochs on SynFoot V1 alone: 2.1 px median keypoint error on the held-out foot, 0.987 mask IoU, but only 11.7 px (p90 113 px) and 0.73 IoU on held-out renders. 8 more epochs with the renders mixed in (`--render-repeat 3`, lr 3e-4) bring the renders to 3.3 px (p90 16 px), 0.93 IoU and 98 % side accuracy, and SynFoot barely moves (2.3 px). On the developer's own frames the FIND template then fits to 0.3–2 px in the mirror and 1–3 px from above, bare or in socks. Shoes and the side view (`third`) still fail: neither dataset has footwear.
 - **Speed on the M1 Pro:** 0.45 s per batch of 32 in fp32. fp16 and bf16 autocast on MPS are slower, and `channels_last` fails in the decoder.
 
 # Synthetic renders without the Blender UI

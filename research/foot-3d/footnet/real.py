@@ -22,7 +22,8 @@ ROOT = Path(__file__).resolve().parents[1]
 FRAMES = ROOT.parent / "foot-tracking/data/prepared"
 OUT = ROOT / "results/footnet/real"
 CROP_CONTEXT = 1.8
-MIN_POINT_SCORE = 0.05
+# About the 5th percentile of peak scores on held-out SynFoot after training: below it a point is a guess.
+MIN_POINT_SCORE = 0.3
 COLORS = {"left": (0, 255, 255), "right": (255, 0, 255)}
 
 
