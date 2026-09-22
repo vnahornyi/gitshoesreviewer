@@ -93,8 +93,8 @@ describe('updateTracks', () => {
       { time: 33, points: jitter(0.01) },
     ]);
     const [foot] = trackedFeet(tracks, 33);
-    expect(foot.heel.x).toBeGreaterThan(0.4);
-    expect(foot.heel.x).toBeLessThan(0.405);
+    expect(foot.heel?.x).toBeGreaterThan(0.4);
+    expect(foot.heel?.x).toBeLessThan(0.405);
   });
 
   it('marks a held foot as stale', () => {

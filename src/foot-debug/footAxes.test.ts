@@ -4,7 +4,7 @@ import { framePoints } from './testPoints';
 jest.mock('react-native-nitro-modules', () => ({ NitroModules: {} }));
 
 describe('footAxes', () => {
-  it('returns heel-to-toe axes with the model sides', () => {
+  it('returns the seen points with the model sides', () => {
     const points = framePoints({
       left: { heel: [0.4, 0.85], toe: [0.35, 0.95], score: 0.9 },
       right: { heel: [0.6, 0.85], toe: [0.65, 0.95], score: 0.8 },
@@ -13,12 +13,14 @@ describe('footAxes', () => {
       {
         side: 'left',
         toe: { x: 0.35, y: 0.95 },
+        smallToe: { x: 0.35, y: 0.96 },
         heel: { x: 0.4, y: 0.85 },
         score: 0.9,
       },
       {
         side: 'right',
         toe: { x: 0.65, y: 0.95 },
+        smallToe: { x: 0.65, y: 0.96 },
         heel: { x: 0.6, y: 0.85 },
         score: 0.8,
       },

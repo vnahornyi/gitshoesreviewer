@@ -1,4 +1,4 @@
-import type { Point, Size } from './footAxes';
+import type { FootPoints, Point, Size } from './footAxes';
 import {
   add,
   cross,
@@ -12,11 +12,15 @@ import {
 
 export type Intrinsics = { focal: number; cx: number; cy: number };
 
-export type FootOnFloor = { heel: Point; toe: Point };
+type ShoePoint = { height: number; forward: number };
 
-// Where the pose model's heel and big-toe points sit on a normalized shoe (heel at the origin, sole on y = 0, toe at z = 1).
-const HEEL_POINT = { height: 0.08, forward: 0.035 };
-const TOE_POINT = { height: 0.08, forward: 0.95 };
+// Where the pose model's points sit on a normalized shoe (heel at the origin, sole on y = 0, toe at z = 1).
+// Ankle and toe midpoint are anatomical estimates (ankle joint ≈ 28 % of the shoe length up, a quarter of the way
+// from the heel; little toe ≈ 80 % along), not measurements yet.
+const HEEL_POINT: ShoePoint = { height: 0.08, forward: 0.035 };
+const TOE_POINT: ShoePoint = { height: 0.08, forward: 0.95 };
+const ANKLE_POINT: ShoePoint = { height: 0.28, forward: 0.26 };
+const TOES_MIDPOINT: ShoePoint = { height: 0.08, forward: 0.86 };
 const MIN_DEPTH_M = 0.1;
 const MAX_DEPTH_M = 8;
 const GRAZING = 0.05;
@@ -65,20 +69,91 @@ function ray(point: Point, frame: Size, k: Intrinsics): Vec3 {
   ];
 }
 
-// A standing foot is flat on the floor, so with gravity known the heel and toe share a height:
-// that pins both depths from two image points and the shoe length, with no iterative solve.
+function inDepthRange(...depths: number[]): boolean {
+  return depths.every(d => d >= MIN_DEPTH_M && d <= MAX_DEPTH_M);
+}
+
+// Seen from the front the model puts the "heel" on the ankle, so the ankle and the toes lead and the heel is the fallback.
 export function shoeTransform(
-  foot: FootOnFloor,
+  foot: FootPoints,
   frame: Size,
   intrinsics: Intrinsics,
   gravity: Vec3,
   shoeLengthM: number,
 ): number[] | null {
   const up = normalize(scale(gravity, -1));
-  const heelRay = ray(foot.heel, frame, intrinsics);
-  const toeRay = ray(foot.toe, frame, intrinsics);
-  const keypointLength = (TOE_POINT.forward - HEEL_POINT.forward) * shoeLengthM;
+  const rays = (p: Point) => ray(p, frame, intrinsics);
+  if (foot.ankle) {
+    const toes = foot.smallToe
+      ? {
+          x: (foot.toe.x + foot.smallToe.x) / 2,
+          y: (foot.toe.y + foot.smallToe.y) / 2,
+        }
+      : foot.toe;
+    const front = foot.smallToe ? TOES_MIDPOINT : TOE_POINT;
+    return fromAnkle(rays(foot.ankle), rays(toes), front, up, shoeLengthM);
+  }
+  if (foot.heel) {
+    return fromHeel(rays(foot.heel), rays(foot.toe), up, shoeLengthM);
+  }
+  return null;
+}
 
+// The ankle stands a known height above the toes and a known distance behind them along the floor. With gravity that
+// is two equations for the two depths: the height fixes the toe depth given the ankle's, and the floor distance is a
+// quadratic in the ankle depth with exactly one positive root while the height gap is smaller than the distance.
+function fromAnkle(
+  ankleRay: Vec3,
+  toeRay: Vec3,
+  front: ShoePoint,
+  up: Vec3,
+  shoeLengthM: number,
+): number[] | null {
+  const rise = (ANKLE_POINT.height - front.height) * shoeLengthM;
+  const reach = (front.forward - ANKLE_POINT.forward) * shoeLengthM;
+  const ankleUp = dot(ankleRay, up);
+  const toeUp = dot(toeRay, up);
+  if (Math.abs(toeUp) < GRAZING) {
+    return null;
+  }
+  const flat = (v: Vec3) => sub(v, scale(up, dot(v, up)));
+  // toeDepth = (ankleDepth · ankleUp − rise) / toeUp; the ankle-to-toe floor vector is ankleDepth · a + b.
+  const a = flat(sub(scale(toeRay, ankleUp / toeUp), ankleRay));
+  const b = flat(scale(toeRay, -rise / toeUp));
+  const qa = dot(a, a);
+  const qb = 2 * dot(a, b);
+  const qc = dot(b, b) - reach * reach;
+  const discriminant = qb * qb - 4 * qa * qc;
+  if (qa === 0 || discriminant < 0) {
+    return null;
+  }
+  const ankleDepth = (-qb + Math.sqrt(discriminant)) / (2 * qa);
+  const toeDepth = (ankleDepth * ankleUp - rise) / toeUp;
+  if (!inDepthRange(ankleDepth, toeDepth)) {
+    return null;
+  }
+  const along = add(scale(a, ankleDepth), b);
+  if (length(along) === 0) {
+    return null;
+  }
+  return placement(
+    scale(ankleRay, ankleDepth),
+    ANKLE_POINT,
+    normalize(along),
+    up,
+    shoeLengthM,
+  );
+}
+
+// A standing foot is flat on the floor, so with gravity known the heel and toe share a height:
+// that pins both depths from two image points and the shoe length, with no iterative solve.
+function fromHeel(
+  heelRay: Vec3,
+  toeRay: Vec3,
+  up: Vec3,
+  shoeLengthM: number,
+): number[] | null {
+  const keypointLength = (TOE_POINT.forward - HEEL_POINT.forward) * shoeLengthM;
   const heelUp = dot(heelRay, up);
   const toeUp = dot(toeRay, up);
   const toeOverHeel = Math.abs(toeUp) > GRAZING ? heelUp / toeUp : 1;
@@ -88,29 +163,32 @@ export function shoeTransform(
   }
   const heelDepth = keypointLength / span;
   const toeDepth = heelDepth * toeOverHeel;
-  if (
-    heelDepth < MIN_DEPTH_M ||
-    heelDepth > MAX_DEPTH_M ||
-    toeDepth < MIN_DEPTH_M ||
-    toeDepth > MAX_DEPTH_M
-  ) {
+  if (!inDepthRange(heelDepth, toeDepth)) {
     return null;
   }
-
   const heel = scale(heelRay, heelDepth);
-  const toe = scale(toeRay, toeDepth);
-  const along = sub(toe, heel);
+  const along = sub(scale(toeRay, toeDepth), heel);
   const flat = sub(along, scale(up, dot(along, up)));
   if (length(flat) === 0) {
     return null;
   }
-  const forward = normalize(flat);
+  return placement(heel, HEEL_POINT, normalize(flat), up, shoeLengthM);
+}
+
+// The shoe's model matrix from one known point on it, its forward direction on the floor and up.
+function placement(
+  anchor: Vec3,
+  anchorOnShoe: ShoePoint,
+  forward: Vec3,
+  up: Vec3,
+  shoeLengthM: number,
+): number[] {
   const side = cross(up, forward);
   const origin = sub(
-    heel,
+    anchor,
     add(
-      scale(up, HEEL_POINT.height * shoeLengthM),
-      scale(forward, HEEL_POINT.forward * shoeLengthM),
+      scale(up, anchorOnShoe.height * shoeLengthM),
+      scale(forward, anchorOnShoe.forward * shoeLengthM),
     ),
   );
 

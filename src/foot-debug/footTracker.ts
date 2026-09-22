@@ -1,4 +1,10 @@
-import { footAxes, type FootAxis, type FootSide, type Point } from './footAxes';
+import {
+  footAxes,
+  type FootAxis,
+  type FootPoints,
+  type FootSide,
+  type Point,
+} from './footAxes';
 import {
   startOneEuro,
   stepOneEuro,
@@ -20,19 +26,19 @@ const SMOOTHING: OneEuroParams = {
 
 type SmoothedPoint = { x: OneEuroState; y: OneEuroState };
 
+const OPTIONAL_POINTS = ['smallToe', 'ankle', 'heel'] as const;
+type OptionalPoint = (typeof OPTIONAL_POINTS)[number];
+
 export type FootTrack = {
   id: number;
   side: FootSide;
-  heel: SmoothedPoint;
   toe: SmoothedPoint;
   lastSeen: number;
-};
+} & Partial<Record<OptionalPoint, SmoothedPoint>>;
 
-export type TrackedFoot = {
+export type TrackedFoot = FootPoints & {
   id: number;
   side: FootSide;
-  heel: Point;
-  toe: Point;
   stale: boolean;
 };
 
@@ -55,14 +61,51 @@ function valueOf(point: SmoothedPoint): Point {
   return { x: point.x.value, y: point.y.value };
 }
 
-function middle(heel: Point, toe: Point): Point {
-  return { x: (heel.x + toe.x) / 2, y: (heel.y + toe.y) / 2 };
+function pointsOf(track: FootTrack): FootPoints {
+  const points: FootPoints = { toe: valueOf(track.toe) };
+  for (const name of OPTIONAL_POINTS) {
+    const state = track[name];
+    if (state) {
+      points[name] = valueOf(state);
+    }
+  }
+  return points;
+}
+
+// Toe and back of the foot: the heel if seen, else the ankle, else the toe alone.
+function centre(foot: FootPoints): Point {
+  const back = foot.heel ?? foot.ankle ?? foot.toe;
+  return { x: (back.x + foot.toe.x) / 2, y: (back.y + foot.toe.y) / 2 };
 }
 
 function distance(track: FootTrack, foot: FootAxis): number {
-  const a = middle(valueOf(track.heel), valueOf(track.toe));
-  const b = middle(foot.heel, foot.toe);
+  const a = centre(pointsOf(track));
+  const b = centre(foot);
   return Math.hypot(a.x - b.x, a.y - b.y);
+}
+
+// Smooth the points seen now; a point the model lost is dropped rather than held, so it cannot drift.
+function stepFoot(
+  track: FootTrack | null,
+  foot: FootAxis,
+  now: number,
+): Omit<FootTrack, 'id' | 'lastSeen'> {
+  const next: Omit<FootTrack, 'id' | 'lastSeen'> = {
+    side: foot.side,
+    toe: track
+      ? stepPoint(track.toe, foot.toe, now)
+      : startPoint(foot.toe, now),
+  };
+  for (const name of OPTIONAL_POINTS) {
+    const point = foot[name];
+    const state = track?.[name];
+    if (point) {
+      next[name] = state
+        ? stepPoint(state, point, now)
+        : startPoint(point, now);
+    }
+  }
+  return next;
 }
 
 function matches(
@@ -100,16 +143,7 @@ export function updateTracks(
     if (!pair) {
       return now - track.lastSeen <= HOLD_MS ? [track] : [];
     }
-    const foot = pair[1];
-    return [
-      {
-        ...track,
-        side: foot.side,
-        heel: stepPoint(track.heel, foot.heel, now),
-        toe: stepPoint(track.toe, foot.toe, now),
-        lastSeen: now,
-      },
-    ];
+    return [{ id: track.id, ...stepFoot(track, pair[1], now), lastSeen: now }];
   });
 
   const started = feet
@@ -118,9 +152,7 @@ export function updateTracks(
     .slice(0, Math.max(0, 2 - updated.length))
     .map(foot => ({
       id: nextId(),
-      side: foot.side,
-      heel: startPoint(foot.heel, now),
-      toe: startPoint(foot.toe, now),
+      ...stepFoot(null, foot, now),
       lastSeen: now,
     }));
 
@@ -131,8 +163,7 @@ export function trackedFeet(tracks: FootTrack[], now: number): TrackedFoot[] {
   return tracks.map(track => ({
     id: track.id,
     side: track.side,
-    heel: valueOf(track.heel),
-    toe: valueOf(track.toe),
+    ...pointsOf(track),
     stale: track.lastSeen < now,
   }));
 }

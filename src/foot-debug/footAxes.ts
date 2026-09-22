@@ -5,10 +5,16 @@ export type Size = { width: number; height: number };
 export type FootSide = 'left' | 'right';
 export type SceneMode = 'mirror' | 'direct';
 
-export type FootAxis = {
-  side: FootSide;
-  heel: Point;
+// The big toe is always there; the rest is whatever the model saw well enough.
+export type FootPoints = {
   toe: Point;
+  smallToe?: Point;
+  ankle?: Point;
+  heel?: Point;
+};
+
+export type FootAxis = FootPoints & {
+  side: FootSide;
   score: number;
 };
 
@@ -23,9 +29,22 @@ function joint(points: readonly number[], name: FootJoint): Joint {
   };
 }
 
-const SIDE_JOINTS: Record<FootSide, { toe: FootJoint; heel: FootJoint }> = {
-  left: { toe: 'leftBigToe', heel: 'leftHeel' },
-  right: { toe: 'rightBigToe', heel: 'rightHeel' },
+const SIDE_JOINTS: Record<
+  FootSide,
+  Record<'toe' | 'smallToe' | 'ankle' | 'heel', FootJoint>
+> = {
+  left: {
+    toe: 'leftBigToe',
+    smallToe: 'leftSmallToe',
+    ankle: 'leftAnkle',
+    heel: 'leftHeel',
+  },
+  right: {
+    toe: 'rightBigToe',
+    smallToe: 'rightSmallToe',
+    ankle: 'rightAnkle',
+    heel: 'rightHeel',
+  },
 };
 
 // The model names feet by how they look in the image; a mirror shows your left foot as a right one.
@@ -41,9 +60,16 @@ export function footAxes(
   minScore: number,
 ): FootAxis[] {
   return (['left', 'right'] as const).flatMap(side => {
-    const toe = joint(points, SIDE_JOINTS[side].toe);
-    const heel = joint(points, SIDE_JOINTS[side].heel);
-    const score = Math.min(toe.score, heel.score);
+    const names = SIDE_JOINTS[side];
+    const toe = joint(points, names.toe);
+    const seen = (name: FootJoint): Point | undefined => {
+      const j = joint(points, name);
+      return j.score >= minScore ? { x: j.x, y: j.y } : undefined;
+    };
+    const ankle = joint(points, names.ankle);
+    const heel = joint(points, names.heel);
+    // A shoe needs the toe and something at the back of the foot: the ankle, or the heel.
+    const score = Math.min(toe.score, Math.max(ankle.score, heel.score));
     if (score < minScore) {
       return [];
     }
@@ -51,7 +77,9 @@ export function footAxes(
       {
         side,
         toe: { x: toe.x, y: toe.y },
-        heel: { x: heel.x, y: heel.y },
+        smallToe: seen(names.smallToe),
+        ankle: seen(names.ankle),
+        heel: seen(names.heel),
         score,
       },
     ];

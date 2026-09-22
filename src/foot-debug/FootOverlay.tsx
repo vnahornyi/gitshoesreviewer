@@ -80,8 +80,12 @@ function Foot({
   scene: SceneMode;
   toView: (point: Point) => Point;
 }) {
-  const heel = toView(foot.heel);
   const toe = toView(foot.toe);
+  const back = foot.heel ?? foot.ankle;
+  const extras = (['smallToe', 'ankle', 'heel'] as const).flatMap(name => {
+    const point = foot[name];
+    return point ? [{ name, at: toView(point) }] : [];
+  });
   const side = sideInScene(foot.side, scene);
   const color = SIDE_COLORS[side];
   return (
@@ -89,8 +93,10 @@ function Foot({
       style={[StyleSheet.absoluteFill, foot.stale && styles.stale]}
       pointerEvents="none"
     >
-      <Axis heel={heel} toe={toe} color={color} />
-      <Dot at={heel} color={color} />
+      {back && <Axis heel={toView(back)} toe={toe} color={color} />}
+      {extras.map(({ name, at }) => (
+        <Dot key={name} at={at} color={color} />
+      ))}
       <Dot at={toe} color={color} label={SIDE_LABELS[side]} />
     </View>
   );

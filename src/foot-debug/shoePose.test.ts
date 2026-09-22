@@ -47,6 +47,52 @@ function scene() {
 
 const flip = (v: Vec3): Vec3 => [v[0], -v[1], -v[2]];
 
+// A mirror-like view: camera 1.1 m up, tilted 30° down, the foot 2 m ahead with its toes turned towards the camera.
+function frontalScene(yawDegrees: number) {
+  const tilt = (30 * Math.PI) / 180;
+  const gravity: Vec3 = [0, Math.cos(tilt), -Math.sin(tilt)];
+  const up = scale(gravity, -1);
+  const floorForward = normalize(add([0, 0, 1], scale(up, -up[2])));
+  const floorRight = normalize(cross(floorForward, up));
+  const yaw = (yawDegrees * Math.PI) / 180;
+  const forward = normalize(
+    add(scale(floorForward, Math.cos(yaw)), scale(floorRight, Math.sin(yaw))),
+  );
+  const side = cross(up, forward);
+  const origin = add(scale(up, -1.1), scale(floorForward, 2));
+  const onShoe = (height: number, along: number, across = 0) =>
+    add(
+      add(add(origin, scale(up, height * SHOE)), scale(forward, along * SHOE)),
+      scale(side, across * SHOE),
+    );
+  const ankle = project(onShoe(0.28, 0.26));
+  return {
+    gravity,
+    up,
+    forward,
+    origin,
+    // What the pose model reports from the front: the "heel" lands on the ankle.
+    foot: {
+      ankle,
+      heel: ankle,
+      toe: project(onShoe(0.08, 0.86, 0.12)),
+      smallToe: project(onShoe(0.08, 0.86, -0.12)),
+    },
+  };
+}
+
+function expectPlacement(
+  m: number[] | null,
+  s: { up: Vec3; forward: Vec3; origin: Vec3 },
+  digits: number,
+) {
+  expect(m).not.toBeNull();
+  const [y, z, o] = [flip(s.up), flip(s.forward), flip(s.origin)];
+  [4, 5, 6].forEach((i, n) => expect(m![i] / SHOE).toBeCloseTo(y[n], digits));
+  [8, 9, 10].forEach((i, n) => expect(m![i] / SHOE).toBeCloseTo(z[n], digits));
+  [12, 13, 14].forEach((i, n) => expect(m![i]).toBeCloseTo(o[n], digits));
+}
+
 describe('shoeTransform', () => {
   it('recovers the shoe on the floor from heel, toe and gravity', () => {
     const s = scene();
@@ -68,6 +114,31 @@ describe('shoeTransform', () => {
     expect(m![12]).toBeCloseTo(z[0], 5);
     expect(m![13]).toBeCloseTo(z[1], 5);
     expect(m![14]).toBeCloseTo(z[2], 5);
+  });
+
+  it('places the shoe from the ankle and toes when the heel sits on the ankle', () => {
+    for (const yaw of [180, 150, 225, 90]) {
+      const s = frontalScene(yaw);
+      // The image midpoint of the two toes is not the projection of their 3D midpoint: allow half a centimetre.
+      expectPlacement(shoeTransform(s.foot, frame, k, s.gravity, SHOE), s, 2);
+    }
+  });
+
+  it('uses the big toe alone when the little toe is not seen', () => {
+    const s = frontalScene(180);
+    const bigToeOnly = {
+      ankle: s.foot.ankle,
+      toe: project(
+        add(
+          add(
+            add(s.origin, scale(s.up, 0.08 * SHOE)),
+            scale(s.forward, 0.95 * SHOE),
+          ),
+          [0, 0, 0],
+        ),
+      ),
+    };
+    expectPlacement(shoeTransform(bigToeOnly, frame, k, s.gravity, SHOE), s, 5);
   });
 
   it('keeps a right-handed rotation', () => {

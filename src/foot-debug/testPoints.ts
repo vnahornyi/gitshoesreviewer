@@ -2,9 +2,11 @@ type FootPoints = {
   heel: [number, number];
   toe: [number, number];
   score: number;
+  ankle?: [number, number, number];
 };
 
 const HIDDEN: FootPoints = { heel: [0, 0], toe: [0, 0], score: 0 };
+const NO_ANKLE = [0, 0, 0];
 
 export function framePoints({
   left = HIDDEN,
@@ -13,7 +15,6 @@ export function framePoints({
   left?: FootPoints;
   right?: FootPoints;
 }): number[] {
-  const ankle = [0.5, 0.5, 0.9];
   const foot = ({ heel, toe, score }: FootPoints) => ({
     toe: [...toe, score],
     smallToe: [toe[0], toe[1] + 0.01, score],
@@ -22,8 +23,8 @@ export function framePoints({
   const l = foot(left);
   const r = foot(right);
   return [
-    ...ankle,
-    ...ankle,
+    ...(left.ankle ?? NO_ANKLE),
+    ...(right.ankle ?? NO_ANKLE),
     ...l.toe,
     ...l.smallToe,
     ...l.heel,
