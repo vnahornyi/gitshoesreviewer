@@ -132,10 +132,11 @@ function matches(
 export function updateTracks(
   tracks: FootTrack[],
   points: readonly number[],
+  refined: readonly number[] | undefined,
   now: number,
   nextId: () => number,
 ): FootTrack[] {
-  const feet = footAxes(points, KEEP_SCORE);
+  const feet = footAxes(points, KEEP_SCORE, refined);
   const matched = matches(tracks, feet);
 
   const updated = tracks.flatMap(track => {

@@ -18,19 +18,30 @@ public extension FootPoseResult {
   /**
    * Create a new instance of `FootPoseResult`.
    */
-  init(points: [Double], preprocessMs: Double, inferenceMs: Double) {
+  init(points: [Double], refined: [Double], preprocessMs: Double, inferenceMs: Double, refineMs: Double) {
     self.init({ () -> bridge.std__vector_double_ in
       var __vector = bridge.create_std__vector_double_(points.count)
       for __item in points {
         __vector.push_back(__item)
       }
       return __vector
-    }(), preprocessMs, inferenceMs)
+    }(), { () -> bridge.std__vector_double_ in
+      var __vector = bridge.create_std__vector_double_(refined.count)
+      for __item in refined {
+        __vector.push_back(__item)
+      }
+      return __vector
+    }(), preprocessMs, inferenceMs, refineMs)
   }
 
   @inline(__always)
   var points: [Double] {
     return self.__points.map({ __item in __item })
+  }
+  
+  @inline(__always)
+  var refined: [Double] {
+    return self.__refined.map({ __item in __item })
   }
   
   @inline(__always)
@@ -41,5 +52,10 @@ public extension FootPoseResult {
   @inline(__always)
   var inferenceMs: Double {
     return self.__inferenceMs
+  }
+  
+  @inline(__always)
+  var refineMs: Double {
+    return self.__refineMs
   }
 }

@@ -15,6 +15,8 @@ namespace margelo::nitro::footpose {
     // load custom methods/properties
     registerHybrids(this, [](Prototype& prototype) {
       prototype.registerHybridGetter("status", &HybridFootPoseDetectorSpec::getStatus);
+      prototype.registerHybridGetter("refine", &HybridFootPoseDetectorSpec::getRefine);
+      prototype.registerHybridSetter("refine", &HybridFootPoseDetectorSpec::setRefine);
       prototype.registerHybridMethod("load", &HybridFootPoseDetectorSpec::load);
       prototype.registerHybridMethod("detect", &HybridFootPoseDetectorSpec::detect);
     });

@@ -12,6 +12,7 @@ import NitroModules
 public protocol HybridFootPoseDetectorSpec_protocol: HybridObject {
   // Properties
   var status: String { get }
+  var refine: Bool { get set }
 
   // Methods
   func load(model: FootModel) throws -> Void

@@ -128,6 +128,17 @@ open class HybridFootPoseDetectorSpec_cxx {
       return std.string(self.__implementation.status)
     }
   }
+  
+  public final var refine: Bool {
+    @inline(__always)
+    get {
+      return self.__implementation.refine
+    }
+    @inline(__always)
+    set {
+      self.__implementation.refine = newValue
+    }
+  }
 
   // Methods
   @inline(__always)

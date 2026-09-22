@@ -53,9 +53,17 @@ private struct Letterbox {
   let scaledHeight: Double
 }
 
+// Foot joints per side in FOOT_JOINTS order, and the minimum score for a point to shape the crop.
+private enum Feet {
+  static let joints: [(side: Int, indices: [Int])] = [(0, [2, 3, 4]), (1, [5, 6, 7])]
+  static let ankles = [0, 1]
+  static let minScore = 0.2
+}
+
 private final class Runner {
   let spec: ModelSpec
   let session: ORTSession
+  var footNet: FootNetRunner?
   private let inputData = NSMutableData(length: 3 * Input.height * Input.width * MemoryLayout<Float>.size)!
   private let simccXData: NSMutableData
   private let simccYData: NSMutableData
@@ -68,7 +76,7 @@ private final class Runner {
     simccYData = NSMutableData(length: spec.joints * Input.height * Input.simccSplit * MemoryLayout<Float>.size)!
   }
 
-  func run(_ pixelBuffer: CVPixelBuffer) throws -> FootPoseResult {
+  func run(_ pixelBuffer: CVPixelBuffer, refine: Bool) throws -> FootPoseResult {
     let started = CACurrentMediaTime()
     let transform = try fillInput(from: pixelBuffer)
     let prepared = CACurrentMediaTime()
@@ -81,11 +89,44 @@ private final class Runner {
       runOptions: nil
     )
     let finished = CACurrentMediaTime()
+    let points = decode(transform)
+    let refined = refine ? self.refine(points, in: pixelBuffer) : [Double](repeating: 0, count: 2 * FootNet.joints * 3)
     return FootPoseResult(
-      points: decode(transform),
+      points: points,
+      refined: refined,
       preprocessMs: (prepared - started) * 1000,
-      inferenceMs: (finished - prepared) * 1000
+      inferenceMs: (finished - prepared) * 1000,
+      refineMs: (CACurrentMediaTime() - finished) * 1000
     )
+  }
+
+  // A crop around each foot RTMPose found goes to FootNet, whose 8 points come back in frame coordinates.
+  private func refine(_ points: [Double], in pixelBuffer: CVPixelBuffer) -> [Double] {
+    let empty = [Double](repeating: 0, count: FootNet.joints * 3)
+    guard let footNet else { return empty + empty }
+    let width = Double(CVPixelBufferGetWidth(pixelBuffer))
+    let height = Double(CVPixelBufferGetHeight(pixelBuffer))
+    return Feet.joints.flatMap { foot -> [Double] in
+      var seen = foot.indices
+        .filter { points[$0 * 3 + 2] >= Feet.minScore }
+        .map { (x: points[$0 * 3] * width, y: points[$0 * 3 + 1] * height) }
+      let ankle = Feet.ankles[foot.side]
+      if seen.count < 2, points[ankle * 3 + 2] >= Feet.minScore {
+        seen.append((x: points[ankle * 3] * width, y: points[ankle * 3 + 1] * height))
+      }
+      guard seen.count >= 2, let box = FootNetRunner.box(around: seen),
+            let found = try? footNet.run(pixelBuffer, crop: box), found.count == FootNet.joints * 3 else {
+        return empty
+      }
+      var normalized = [Double]()
+      normalized.reserveCapacity(found.count)
+      for point in stride(from: 0, to: found.count, by: 3) {
+        normalized.append(found[point] / width)
+        normalized.append(found[point + 1] / height)
+        normalized.append(found[point + 2])
+      }
+      return normalized
+    }
   }
 
   private func tensor(_ data: NSMutableData, shape: [Int]) throws -> ORTValue {
@@ -175,6 +216,12 @@ class HybridFootPoseDetector: HybridFootPoseDetectorSpec {
   private var runner: Runner?
   private var requested: FootModel?
   private var loadStatus = "idle"
+  private var refineFeet = false
+
+  var refine: Bool {
+    get { lock.withLock { refineFeet } }
+    set { lock.withLock { refineFeet = newValue } }
+  }
 
   var status: String {
     lock.lock()
@@ -202,6 +249,7 @@ class HybridFootPoseDetector: HybridFootPoseDetectorSpec {
     lock.lock()
     let runner = self.runner
     let status = loadStatus
+    let refine = refineFeet
     lock.unlock()
     guard let runner else { throw FootPoseError.notReady(status) }
     guard let frame = frame as? any NativeFrame,
@@ -209,7 +257,7 @@ class HybridFootPoseDetector: HybridFootPoseDetectorSpec {
           let pixelBuffer = CMSampleBufferGetImageBuffer(sampleBuffer) else {
       throw FootPoseError.unsupportedFrame("no pixel buffer")
     }
-    return try runner.run(pixelBuffer)
+    return try runner.run(pixelBuffer, refine: refine)
   }
 
   private func build(_ model: FootModel) {
@@ -229,8 +277,24 @@ class HybridFootPoseDetector: HybridFootPoseDetectorSpec {
         "MLComputeUnits": "ALL",
         "ModelCacheDirectory": cache.path,
       ])
-      let session = try ORTSession(env: try ORTEnv(loggingLevel: .warning), modelPath: path, sessionOptions: options)
-      return Runner(spec: spec, session: session)
+      let environment = try ORTEnv(loggingLevel: .warning)
+      let session = try ORTSession(env: environment, modelPath: path, sessionOptions: options)
+      let built = Runner(spec: spec, session: session)
+      if let footNetPath = Bundle.main.path(forResource: FootNet.resource, ofType: "onnx")
+        ?? Bundle(for: HybridFootPoseDetector.self).path(forResource: FootNet.resource, ofType: "onnx") {
+        let footNetCache = cache.deletingLastPathComponent().appendingPathComponent(FootNet.resource, isDirectory: true)
+        try FileManager.default.createDirectory(at: footNetCache, withIntermediateDirectories: true)
+        let footNetOptions = try ORTSessionOptions()
+        try footNetOptions.appendCoreMLExecutionProvider(withOptionsV2: [
+          "ModelFormat": "MLProgram",
+          "MLComputeUnits": "ALL",
+          "ModelCacheDirectory": footNetCache.path,
+        ])
+        built.footNet = FootNetRunner(
+          session: try ORTSession(env: environment, modelPath: footNetPath, sessionOptions: footNetOptions)
+        )
+      }
+      return built
     }
 
     lock.lock()

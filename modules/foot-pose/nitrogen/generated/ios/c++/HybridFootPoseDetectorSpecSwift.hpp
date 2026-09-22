@@ -76,6 +76,12 @@ namespace margelo::nitro::footpose {
       auto __result = _swiftPart.getStatus();
       return __result;
     }
+    inline bool getRefine() noexcept override {
+      return _swiftPart.getRefine();
+    }
+    inline void setRefine(bool refine) noexcept override {
+      _swiftPart.setRefine(std::forward<decltype(refine)>(refine));
+    }
 
   public:
     // Methods

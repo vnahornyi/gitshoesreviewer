@@ -1,4 +1,9 @@
-import { FOOT_JOINTS, type FootJoint } from 'react-native-foot-pose';
+import {
+  FOOT_JOINTS,
+  FOOT_NET_JOINTS,
+  type FootJoint,
+  type FootNetJoint,
+} from 'react-native-foot-pose';
 
 export type Point = { x: number; y: number };
 export type Size = { width: number; height: number };
@@ -55,11 +60,33 @@ export function sideInScene(modelSide: FootSide, scene: SceneMode): FootSide {
   return modelSide === 'left' ? 'right' : 'left';
 }
 
+// FootNet's own score for a point; below it the peak is a guess (the 5th percentile on held-out SynFoot).
+export const REFINED_MIN_SCORE = 0.3;
+
+function refinedFoot(
+  refined: readonly number[],
+  index: number,
+): FootPoints | undefined {
+  const at = (name: FootNetJoint): Point | undefined => {
+    const offset =
+      (index * FOOT_NET_JOINTS.length + FOOT_NET_JOINTS.indexOf(name)) * 3;
+    const score = refined[offset + 2];
+    return score >= REFINED_MIN_SCORE
+      ? { x: refined[offset], y: refined[offset + 1] }
+      : undefined;
+  };
+  const toe = at('bigToe');
+  const heel = at('heel');
+  // FootNet sees the heel even from the front, so the shoe pose can rely on it and drop the ankle.
+  return toe && heel ? { toe, smallToe: at('littleToe'), heel } : undefined;
+}
+
 export function footAxes(
   points: readonly number[],
   minScore: number,
+  refined?: readonly number[],
 ): FootAxis[] {
-  return (['left', 'right'] as const).flatMap(side => {
+  return (['left', 'right'] as const).flatMap((side, index) => {
     const names = SIDE_JOINTS[side];
     const toe = joint(points, names.toe);
     const seen = (name: FootJoint): Point | undefined => {
@@ -72,6 +99,10 @@ export function footAxes(
     const score = Math.min(toe.score, Math.max(ankle.score, heel.score));
     if (score < minScore) {
       return [];
+    }
+    const better = refined && refinedFoot(refined, index);
+    if (better) {
+      return [{ side, ...better, score: Math.max(score, REFINED_MIN_SCORE) }];
     }
     return [
       {

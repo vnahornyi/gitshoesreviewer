@@ -23,7 +23,8 @@ function counter() {
 function run(frames: Array<{ time: number; points: number[] }>): FootTrack[] {
   const nextId = counter();
   return frames.reduce<FootTrack[]>(
-    (tracks, frame) => updateTracks(tracks, frame.points, frame.time, nextId),
+    (tracks, frame) =>
+      updateTracks(tracks, frame.points, undefined, frame.time, nextId),
     [],
   );
 }

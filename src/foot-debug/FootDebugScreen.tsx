@@ -36,6 +36,13 @@ const LEG_LABELS: Record<Leg, string> = {
   cylinder: 'Нога: циліндр',
 };
 
+type Points = 'footnet' | 'rtmpose';
+
+const POINTS_LABELS: Record<Points, string> = {
+  footnet: 'Точки: наша модель',
+  rtmpose: 'Точки: RTMPose',
+};
+
 type Look = 'camera' | 'clean';
 
 const LOOK_LABELS: Record<Look, string> = {
@@ -80,8 +87,10 @@ function Stats({
   preprocessMs,
   inferenceMs,
   matteMs,
+  refineMs,
   frame,
 }: {
+  refineMs?: number;
   frame?: Size;
   status: string;
   fps: number;
@@ -96,6 +105,7 @@ function Stats({
     <Text style={styles.stats}>
       {fps.toFixed(1)} fps · модель {inferenceMs?.toFixed(0) ?? '–'} мс ·
       підготовка {preprocessMs?.toFixed(0) ?? '–'} мс
+      {refineMs ? ` · стопи ${refineMs.toFixed(0)} мс` : ''}
       {matteMs === undefined ? '' : ` · маска ${matteMs.toFixed(0)} мс`}
       {frame ? ` · ${frame.width}×${frame.height}` : ''}
     </Text>
@@ -125,12 +135,14 @@ function LiveFeet() {
   const [layer, setLayer] = useState<Layer>('axes');
   const [leg, setLeg] = useState<Leg>('cylinder');
   const [look, setLook] = useState<Look>('clean');
+  const [pointsFrom, setPointsFrom] = useState<Points>('rtmpose');
   const [view, setView] = useState<Size | null>(null);
   const showShoe = layer !== 'axes' && position === 'back';
   const legMatte = showShoe && leg === 'matte';
   const { frameOutput, sample, feet, status, fps } = useFootPose(model, {
     legMatte,
     sceneLight: showShoe && look === 'camera',
+    refine: pointsFrom === 'footnet',
   });
 
   const onLayout = (event: LayoutChangeEvent) => {
@@ -174,6 +186,7 @@ function LiveFeet() {
           preprocessMs={sample?.preprocessMs}
           inferenceMs={sample?.inferenceMs}
           matteMs={legMatte ? sample?.matteMs : undefined}
+          refineMs={sample?.refineMs}
           frame={
             sample
               ? { width: sample.frameWidth, height: sample.frameHeight }
@@ -181,6 +194,11 @@ function LiveFeet() {
           }
         />
         <Toggle value={layer} options={LAYER_LABELS} onChange={setLayer} />
+        <Toggle
+          value={pointsFrom}
+          options={POINTS_LABELS}
+          onChange={setPointsFrom}
+        />
         {showShoe ? (
           <>
             <Toggle value={leg} options={LEG_LABELS} onChange={setLeg} />
