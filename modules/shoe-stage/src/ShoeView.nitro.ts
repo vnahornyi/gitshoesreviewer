@@ -18,6 +18,8 @@ export interface ShoeViewProps extends HybridViewProps {
   shoes: ShoePose[];
   // Cut the shoe where the person matte shows the leg above the shoe's collar; otherwise a fixed shin cylinder does it.
   legMatte: boolean;
+  // Light the shoe with the frame's brightness and colour cast, and add the camera's slight blur and grain.
+  matchCamera: boolean;
 }
 
 export interface ShoeViewMethods extends HybridViewMethods {}

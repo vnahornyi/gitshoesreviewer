@@ -26,9 +26,16 @@ type ShoeLayerProps = {
   sample: FootPoseSample;
   view: Size;
   legMatte: boolean;
+  matchCamera: boolean;
 };
 
-export function ShoeLayer({ feet, sample, view, legMatte }: ShoeLayerProps) {
+export function ShoeLayer({
+  feet,
+  sample,
+  view,
+  legMatte,
+  matchCamera,
+}: ShoeLayerProps) {
   const frame = useMemo(
     () => ({ width: sample.frameWidth, height: sample.frameHeight }),
     [sample.frameWidth, sample.frameHeight],
@@ -64,6 +71,7 @@ export function ShoeLayer({ feet, sample, view, legMatte }: ShoeLayerProps) {
       verticalFovDegrees={verticalFovDegrees(frame, intrinsics)}
       shoes={shoes}
       legMatte={legMatte}
+      matchCamera={matchCamera}
     />
   );
 }

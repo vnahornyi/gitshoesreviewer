@@ -55,6 +55,8 @@ namespace margelo::nitro::shoestage {
       virtual void setShoes(const std::vector<ShoePose>& shoes) = 0;
       virtual bool getLegMatte() = 0;
       virtual void setLegMatte(bool legMatte) = 0;
+      virtual bool getMatchCamera() = 0;
+      virtual void setMatchCamera(bool matchCamera) = 0;
 
     public:
       // Methods

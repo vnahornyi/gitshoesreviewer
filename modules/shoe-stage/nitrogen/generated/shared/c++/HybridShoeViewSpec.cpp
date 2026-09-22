@@ -22,6 +22,8 @@ namespace margelo::nitro::shoestage {
       prototype.registerHybridSetter("shoes", &HybridShoeViewSpec::setShoes);
       prototype.registerHybridGetter("legMatte", &HybridShoeViewSpec::getLegMatte);
       prototype.registerHybridSetter("legMatte", &HybridShoeViewSpec::setLegMatte);
+      prototype.registerHybridGetter("matchCamera", &HybridShoeViewSpec::getMatchCamera);
+      prototype.registerHybridSetter("matchCamera", &HybridShoeViewSpec::setMatchCamera);
     });
   }
 

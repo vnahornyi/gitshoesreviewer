@@ -94,6 +94,12 @@ namespace margelo::nitro::shoestage {
     inline void setLegMatte(bool legMatte) noexcept override {
       _swiftPart.setLegMatte(std::forward<decltype(legMatte)>(legMatte));
     }
+    inline bool getMatchCamera() noexcept override {
+      return _swiftPart.getMatchCamera();
+    }
+    inline void setMatchCamera(bool matchCamera) noexcept override {
+      _swiftPart.setMatchCamera(std::forward<decltype(matchCamera)>(matchCamera));
+    }
 
   public:
     // Methods

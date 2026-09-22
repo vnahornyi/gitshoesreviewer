@@ -30,6 +30,12 @@
         "language": "swift",
         "implementationClassName": "HybridPersonMatte"
       }
+    },
+    "SceneLight": {
+      "ios": {
+        "language": "swift",
+        "implementationClassName": "HybridSceneLight"
+      }
     }
   },
   "ignorePaths": [

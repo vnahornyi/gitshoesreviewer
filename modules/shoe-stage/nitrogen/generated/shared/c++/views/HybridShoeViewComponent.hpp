@@ -49,6 +49,7 @@ namespace margelo::nitro::shoestage::views {
     nitro::ReactProp<double> verticalFovDegrees;
     nitro::ReactProp<std::vector<ShoePose>> shoes;
     nitro::ReactProp<bool> legMatte;
+    nitro::ReactProp<bool> matchCamera;
     nitro::ReactProp<std::optional<std::function<void(const std::shared_ptr<HybridShoeViewSpec>& /* ref */)>>> hybridRef;
 
     [[nodiscard]]
@@ -57,6 +58,7 @@ namespace margelo::nitro::shoestage::views {
              verticalFovDegrees.hasSameValue(other.verticalFovDegrees) &&
              shoes.hasSameValue(other.shoes) &&
              legMatte.hasSameValue(other.legMatte) &&
+             matchCamera.hasSameValue(other.matchCamera) &&
              hybridRef.hasSameValue(other.hybridRef);
     }
 
@@ -66,6 +68,7 @@ namespace margelo::nitro::shoestage::views {
              verticalFovDegrees.isProvided() ||
              shoes.isProvided() ||
              legMatte.isProvided() ||
+             matchCamera.isProvided() ||
              hybridRef.isProvided();
     }
 

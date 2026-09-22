@@ -170,6 +170,17 @@ open class HybridShoeViewSpec_cxx {
       self.__implementation.legMatte = newValue
     }
   }
+  
+  public final var matchCamera: Bool {
+    @inline(__always)
+    get {
+      return self.__implementation.matchCamera
+    }
+    @inline(__always)
+    set {
+      self.__implementation.matchCamera = newValue
+    }
+  }
 
   // Methods
   public final func getView() -> UnsafeMutableRawPointer {

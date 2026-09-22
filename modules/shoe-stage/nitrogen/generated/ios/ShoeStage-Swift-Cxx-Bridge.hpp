@@ -14,6 +14,8 @@ namespace margelo::nitro::shoestage { class HybridDeviceGravitySpec; }
 namespace margelo::nitro::camera { class HybridFrameSpec; }
 // Forward declaration of `HybridPersonMatteSpec` to properly resolve imports.
 namespace margelo::nitro::shoestage { class HybridPersonMatteSpec; }
+// Forward declaration of `HybridSceneLightSpec` to properly resolve imports.
+namespace margelo::nitro::shoestage { class HybridSceneLightSpec; }
 // Forward declaration of `HybridShoeViewSpec` to properly resolve imports.
 namespace margelo::nitro::shoestage { class HybridShoeViewSpec; }
 // Forward declaration of `ShoePose` to properly resolve imports.
@@ -28,12 +30,15 @@ namespace ShoeStage { class HybridDeviceGravitySpec_cxx; }
 namespace VisionCamera { class HybridFrameSpec_cxx; }
 // Forward declaration of `HybridPersonMatteSpec_cxx` to properly resolve imports.
 namespace ShoeStage { class HybridPersonMatteSpec_cxx; }
+// Forward declaration of `HybridSceneLightSpec_cxx` to properly resolve imports.
+namespace ShoeStage { class HybridSceneLightSpec_cxx; }
 // Forward declaration of `HybridShoeViewSpec_cxx` to properly resolve imports.
 namespace ShoeStage { class HybridShoeViewSpec_cxx; }
 
 // Include C++ defined types
 #include "HybridDeviceGravitySpec.hpp"
 #include "HybridPersonMatteSpec.hpp"
+#include "HybridSceneLightSpec.hpp"
 #include "HybridShoeViewSpec.hpp"
 #include "ShoePose.hpp"
 #include "ShoeSide.hpp"
@@ -112,6 +117,27 @@ namespace margelo::nitro::shoestage::bridge::swift {
   }
   inline Result_double_ create_Result_double_(const std::exception_ptr& error) noexcept {
     return Result<double>::withError(error);
+  }
+  
+  // pragma MARK: std::shared_ptr<HybridSceneLightSpec>
+  /**
+   * Specialized version of `std::shared_ptr<HybridSceneLightSpec>`.
+   */
+  using std__shared_ptr_HybridSceneLightSpec_ = std::shared_ptr<HybridSceneLightSpec>;
+  std::shared_ptr<HybridSceneLightSpec> create_std__shared_ptr_HybridSceneLightSpec_(void* NON_NULL swiftUnsafePointer) noexcept;
+  void* NON_NULL get_std__shared_ptr_HybridSceneLightSpec_(std__shared_ptr_HybridSceneLightSpec_ cppType);
+  
+  // pragma MARK: std::weak_ptr<HybridSceneLightSpec>
+  using std__weak_ptr_HybridSceneLightSpec_ = std::weak_ptr<HybridSceneLightSpec>;
+  inline std__weak_ptr_HybridSceneLightSpec_ weakify_std__shared_ptr_HybridSceneLightSpec_(const std::shared_ptr<HybridSceneLightSpec>& strong) noexcept { return strong; }
+  
+  // pragma MARK: Result<void>
+  using Result_void_ = Result<void>;
+  inline Result_void_ create_Result_void_() noexcept {
+    return Result<void>::withValue();
+  }
+  inline Result_void_ create_Result_void_(const std::exception_ptr& error) noexcept {
+    return Result<void>::withError(error);
   }
   
   // pragma MARK: std::vector<ShoePose>

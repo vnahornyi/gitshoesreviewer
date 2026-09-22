@@ -36,6 +36,13 @@ const LEG_LABELS: Record<Leg, string> = {
   cylinder: 'Нога: циліндр',
 };
 
+type Look = 'camera' | 'clean';
+
+const LOOK_LABELS: Record<Look, string> = {
+  camera: 'Вигляд: камера',
+  clean: 'Вигляд: чистий',
+};
+
 const SCENE_LABELS: Record<SceneMode, string> = {
   direct: 'На ноги',
   mirror: 'Дзеркало',
@@ -114,12 +121,13 @@ function LiveFeet() {
   const [model, setModel] = useState<FootModel>('rtmpose-m');
   const [layer, setLayer] = useState<Layer>('axes');
   const [leg, setLeg] = useState<Leg>('matte');
+  const [look, setLook] = useState<Look>('camera');
   const [view, setView] = useState<Size | null>(null);
   const showShoe = layer !== 'axes' && position === 'back';
-  const { frameOutput, sample, feet, status, fps } = useFootPose(
-    model,
-    showShoe && leg === 'matte',
-  );
+  const { frameOutput, sample, feet, status, fps } = useFootPose(model, {
+    legMatte: showShoe && leg === 'matte',
+    sceneLight: showShoe && look === 'camera',
+  });
 
   const onLayout = (event: LayoutChangeEvent) => {
     const { width, height } = event.nativeEvent.layout;
@@ -142,6 +150,7 @@ function LiveFeet() {
             sample={sample}
             view={view}
             legMatte={leg === 'matte'}
+            matchCamera={look === 'camera'}
           />
         ) : null}
         {sample && view && layer !== 'shoe' ? (
@@ -164,7 +173,10 @@ function LiveFeet() {
         />
         <Toggle value={layer} options={LAYER_LABELS} onChange={setLayer} />
         {showShoe ? (
-          <Toggle value={leg} options={LEG_LABELS} onChange={setLeg} />
+          <>
+            <Toggle value={leg} options={LEG_LABELS} onChange={setLeg} />
+            <Toggle value={look} options={LOOK_LABELS} onChange={setLook} />
+          </>
         ) : null}
         <Toggle value={model} options={MODEL_LABELS} onChange={setModel} />
         <Toggle value={scene} options={SCENE_LABELS} onChange={setScene} />

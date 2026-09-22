@@ -10,6 +10,7 @@
 // Include C++ implementation defined types
 #include "HybridDeviceGravitySpecSwift.hpp"
 #include "HybridPersonMatteSpecSwift.hpp"
+#include "HybridSceneLightSpecSwift.hpp"
 #include "HybridShoeViewSpecSwift.hpp"
 #include "ShoeStage-Swift-Cxx-Umbrella.hpp"
 #include <NitroModules/NitroDefines.hpp>
@@ -56,6 +57,22 @@ namespace margelo::nitro::shoestage::bridge::swift {
     }
     #endif
     ShoeStage::HybridPersonMatteSpec_cxx& swiftPart = swiftWrapper->getSwiftPart();
+    return swiftPart.toUnsafe();
+  }
+  
+  // pragma MARK: std::shared_ptr<HybridSceneLightSpec>
+  std::shared_ptr<HybridSceneLightSpec> create_std__shared_ptr_HybridSceneLightSpec_(void* NON_NULL swiftUnsafePointer) noexcept {
+    ShoeStage::HybridSceneLightSpec_cxx swiftPart = ShoeStage::HybridSceneLightSpec_cxx::fromUnsafe(swiftUnsafePointer);
+    return std::make_shared<margelo::nitro::shoestage::HybridSceneLightSpecSwift>(swiftPart);
+  }
+  void* NON_NULL get_std__shared_ptr_HybridSceneLightSpec_(std__shared_ptr_HybridSceneLightSpec_ cppType) {
+    std::shared_ptr<margelo::nitro::shoestage::HybridSceneLightSpecSwift> swiftWrapper = std::dynamic_pointer_cast<margelo::nitro::shoestage::HybridSceneLightSpecSwift>(cppType);
+    #ifdef NITRO_DEBUG
+    if (swiftWrapper == nullptr) [[unlikely]] {
+      throw std::runtime_error("Class \"HybridSceneLightSpec\" is not implemented in Swift!");
+    }
+    #endif
+    ShoeStage::HybridSceneLightSpec_cxx& swiftPart = swiftWrapper->getSwiftPart();
     return swiftPart.toUnsafe();
   }
   
