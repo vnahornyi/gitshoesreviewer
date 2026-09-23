@@ -37,7 +37,7 @@ enum FootPoseError: Error, LocalizedError {
   var errorDescription: String? {
     switch self {
     case .modelMissing(let resource):
-      return "\(resource).onnx is not in the app bundle: copy it into modules/foot-pose/model and run pod install"
+      return "\(resource) is not in the app bundle: put it in modules/foot-pose/model and run pod install"
     case .notReady(let status):
       return "detector is \(status)"
     case .unsupportedFrame(let reason):
@@ -58,8 +58,6 @@ private enum Feet {
   static let joints: [(side: Int, indices: [Int])] = [(0, [2, 3, 4]), (1, [5, 6, 7])]
   static let ankles = [0, 1]
   static let minScore = 0.2
-  // FootNet costs several times a frame, so it runs this often and the frames in between follow the body model.
-  static let refineInterval: CFTimeInterval = 0.2
 }
 
 private final class Runner {
@@ -70,8 +68,6 @@ private final class Runner {
   private let simccXData: NSMutableData
   private let simccYData: NSMutableData
   private var letterbox = [UInt8](repeating: 0, count: Input.width * Input.height * 4)
-  private var refinedAt: CFTimeInterval = 0
-  private var lastRefineMs: Double = 0
 
   init(spec: ModelSpec, session: ORTSession) {
     self.spec = spec
@@ -94,18 +90,15 @@ private final class Runner {
     )
     let finished = CACurrentMediaTime()
     let points = decode(transform)
-    var refined = [Double](repeating: 0, count: 2 * FootNet.joints * 3)
-    if refine, finished - refinedAt >= Feet.refineInterval {
-      refined = self.refine(points, in: pixelBuffer)
-      refinedAt = finished
-      lastRefineMs = (CACurrentMediaTime() - finished) * 1000
-    }
+    let refined = refine
+      ? self.refine(points, in: pixelBuffer)
+      : [Double](repeating: 0, count: 2 * FootNet.joints * 3)
     return FootPoseResult(
       points: points,
       refined: refined,
       preprocessMs: (prepared - started) * 1000,
       inferenceMs: (finished - prepared) * 1000,
-      refineMs: lastRefineMs
+      refineMs: (CACurrentMediaTime() - finished) * 1000
     )
   }
 
@@ -289,20 +282,7 @@ class HybridFootPoseDetector: HybridFootPoseDetectorSpec {
       let environment = try ORTEnv(loggingLevel: .warning)
       let session = try ORTSession(env: environment, modelPath: path, sessionOptions: options)
       let built = Runner(spec: spec, session: session)
-      if let footNetPath = Bundle.main.path(forResource: FootNet.resource, ofType: "onnx")
-        ?? Bundle(for: HybridFootPoseDetector.self).path(forResource: FootNet.resource, ofType: "onnx") {
-        let footNetCache = cache.deletingLastPathComponent().appendingPathComponent(FootNet.resource, isDirectory: true)
-        try FileManager.default.createDirectory(at: footNetCache, withIntermediateDirectories: true)
-        let footNetOptions = try ORTSessionOptions()
-        try footNetOptions.appendCoreMLExecutionProvider(withOptionsV2: [
-          "ModelFormat": "MLProgram",
-          "MLComputeUnits": "ALL",
-          "ModelCacheDirectory": footNetCache.path,
-        ])
-        built.footNet = FootNetRunner(
-          session: try ORTSession(env: environment, modelPath: footNetPath, sessionOptions: footNetOptions)
-        )
-      }
+      built.footNet = try FootNetRunner.load(from: Bundle(for: HybridFootPoseDetector.self))
       return built
     }
 

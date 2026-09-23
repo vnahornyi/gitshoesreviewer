@@ -8,19 +8,21 @@ The models (28 MB, 114 MB and 9 MB) are not in git. Build them, then copy them h
 
 ```bash
 cp tools/model-convert/work/rtmpose-m-fp16.onnx tools/model-convert/work/rtmw-x-l-fp16.onnx modules/foot-pose/model/
-cd research/foot-3d && uv run python -m footnet.export   # writes model/footnet-fp16.onnx
+cd research/foot-3d && uv run python -m footnet.export   # writes model/footnet.mlmodelc
 cd ios && bundle exec pod install
 ```
 
-The podspec ships `model/*.onnx` in the app bundle. On the first load of each model, Core ML compiles it into `Caches/foot-pose-coreml/<model>`, and `status` stays `loading …` until that finishes.
+The podspec ships `model/*.onnx` and `model/*.mlmodelc` in the app bundle. The RTMPose models run through ONNX Runtime, and Core ML compiles each into `Caches/foot-pose-coreml/<model>` on its first load, so `status` stays `loading …` until that finishes. FootNet is a Core ML model already compiled by the export, and loads straight away.
+
+FootNet is not an ONNX model because ONNX Runtime's Core ML execution provider cut its graph into 22 partitions and copied the tensors out and back at each one, which left the Neural Engine slower than the CPU (44 ms against 20). Converted from PyTorch by `coremltools` and run through Core ML the whole network stays on the Neural Engine at 1.9 ms. The same is worth doing for RTMPose.
 
 ## API
 
 - `createFootPoseDetector()` creates the detector, and `load('rtmpose-m' | 'rtmw-x-l')` builds that model's session on a background queue. `detect` throws until `status` is `ready`.
 - `detect(frame)` must receive an upright BGRA frame, so use `useFrameOutput({ pixelFormat: 'rgb', enablePhysicalBufferRotation: true })`. It returns `points`: 8 joints × `[x, y, score]`, with x and y normalized to the frame. The joint order is `FOOT_JOINTS`: ankles, then left big toe, small toe and heel, then the same for the right foot. It also returns the preprocessing and inference time in ms.
-- `refine` turns on FootNet (`research/foot-3d`, `footnet-fp16.onnx`), our own foot model. For each foot RTMPose found, the crop around its points (1.45× the box, at least 24 px) is resized to 256×256, normalised with ImageNet statistics on RGB 0…1, and its 8 keypoint heatmaps are decoded here: the peak of each, refined by a softmax-weighted mean over a 5×5 window. `refined` then holds the left foot's 8 points and the right foot's, each `[x, y, score]` normalized to the frame, in `FOOT_NET_JOINTS` order, and `refineMs` how long both feet took. A foot that was not found, or not refined, is all zeros.
+- `refine` turns on FootNet (`research/foot-3d`, `footnet.mlmodelc`), our own foot model. For each foot RTMPose found, the crop around its points (1.45× the box, at least 24 px) is scaled into a 256×256 pixel buffer and handed to Core ML, which scales and normalises the pixels itself; its 8 keypoint heatmaps come back as float16 and are decoded here: the peak of each, refined by a softmax-weighted mean over a 5×5 window. `refined` then holds the left foot's 8 points and the right foot's, each `[x, y, score]` normalized to the frame, in `FOOT_NET_JOINTS` order, and `refineMs` how long both feet took. A foot that was not found, or not refined, is all zeros.
 
-  FootNet costs several times what RTMPose does, so with `refine` on it still only runs five times a second and the frames in between come back with `refined` all zeros; `refineMs` keeps reporting the last run. Whoever reads the points is expected to carry the last ones over those frames — `src/foot-debug/footTracker.ts` moves them by how far RTMPose's big toe moved.
-- Point names follow how the foot looks in the image. In a mirror they are the other way round, and `src/foot-debug/footAxes.ts` swaps them.
+  A foot FootNet did not refine comes back as zeros, so whoever reads the points has to cope without them — `src/foot-debug/footTracker.ts` carries the last ones over, moved by how far RTMPose's big toe moved.
+- Point names follow how the foot looks in the image, which in a mirror is the other way round from the person's own left and right.
 
 After changing `src/FootPoseDetector.nitro.ts`, run `npm run codegen` in this directory.

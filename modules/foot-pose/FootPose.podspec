@@ -14,8 +14,8 @@ Pod::Spec.new do |s|
   s.source       = { :path => "." }
 
   s.source_files = ["ios/**/*.{swift}"]
-  s.resources    = ["model/*.onnx"]
-  s.frameworks   = ["AVFoundation", "Accelerate"]
+  s.resources    = ["model/*.onnx", "model/*.mlmodelc"]
+  s.frameworks   = ["AVFoundation", "Accelerate", "CoreML"]
 
   load 'nitrogen/generated/ios/FootPose+autolinking.rb'
   add_nitrogen_files(s)

@@ -1,16 +1,17 @@
 import Accelerate
+import CoreML
 import CoreVideo
 import Foundation
-import onnxruntime_objc
 
-// FootNet (research/foot-3d): a 256×256 crop of one foot in, a foot mask and 8 keypoint heatmaps out.
+// FootNet (research/foot-3d): a 256×256 crop of one foot in, 8 keypoint heatmaps out.
+//
+// Core ML directly rather than through ONNX Runtime: its Core ML execution provider cut this graph into 22 partitions
+// and copied the tensors out and back at each one, which left the Neural Engine slower than the CPU. Core ML runs the
+// whole network on the Neural Engine, 16× faster on the same weights.
 enum FootNet {
-  static let resource = "footnet-fp16"
+  static let resource = "footnet"
   static let size = 256
   static let joints = 8
-  // ImageNet normalisation on RGB 0…1, as the training pipeline uses.
-  static let mean: [Float] = [0.485, 0.456, 0.406]
-  static let std: [Float] = [0.229, 0.224, 0.225]
   // The crop is this much wider than the box around the points RTMPose found, matching the training crops.
   static let context = 1.45
   // Peaks are refined over this radius, as `decode_points` does in training.
@@ -25,15 +26,33 @@ struct Crop {
 }
 
 final class FootNetRunner {
-  private let session: ORTSession
-  private let inputData = NSMutableData(length: 3 * FootNet.size * FootNet.size * MemoryLayout<Float>.size)!
-  // Bound up front, as for RTMPose: a tensor read back from the session owns its buffer only as long as the run's
-  // output value lives, and that buffer went away under us.
-  private let heatmapData = NSMutableData(length: FootNet.joints * FootNet.size * FootNet.size * MemoryLayout<Float>.size)!
-  private var crop = [UInt8](repeating: 0, count: FootNet.size * FootNet.size * 4)
+  private let model: MLModel
+  private let pool: CVPixelBufferPool
+  // The model writes float16; the peaks are found in float32, which Accelerate has the primitives for.
+  private var heatmaps = [Float](repeating: 0, count: FootNet.joints * FootNet.size * FootNet.size)
 
-  init(session: ORTSession) {
-    self.session = session
+  init(model: MLModel) throws {
+    self.model = model
+    let attributes: [String: Any] = [
+      kCVPixelBufferPixelFormatTypeKey as String: kCVPixelFormatType_32BGRA,
+      kCVPixelBufferWidthKey as String: FootNet.size,
+      kCVPixelBufferHeightKey as String: FootNet.size,
+      kCVPixelBufferIOSurfacePropertiesKey as String: [:] as [String: Any],
+    ]
+    var pool: CVPixelBufferPool?
+    guard CVPixelBufferPoolCreate(nil, nil, attributes as CFDictionary, &pool) == kCVReturnSuccess, let pool else {
+      throw FootPoseError.notReady("no pixel buffer pool for FootNet")
+    }
+    self.pool = pool
+  }
+
+  static func load(from bundle: Bundle) throws -> FootNetRunner {
+    guard let url = bundle.url(forResource: FootNet.resource, withExtension: "mlmodelc") else {
+      throw FootPoseError.modelMissing(FootNet.resource)
+    }
+    let configuration = MLModelConfiguration()
+    configuration.computeUnits = .all
+    return try FootNetRunner(model: try MLModel(contentsOf: url, configuration: configuration))
   }
 
   static func box(around points: [(x: Double, y: Double)]) -> Crop? {
@@ -46,20 +65,37 @@ final class FootNetRunner {
 
   /// Returns 8 × [x, y, score] in frame pixels.
   func run(_ pixelBuffer: CVPixelBuffer, crop box: Crop) throws -> [Double] {
-    try fillInput(from: pixelBuffer, crop: box)
-    try session.run(
-      withInputs: ["image": try tensor(inputData, shape: [1, 3, FootNet.size, FootNet.size])],
-      outputs: ["heatmaps": try tensor(heatmapData, shape: [1, FootNet.joints, FootNet.size, FootNet.size])],
-      runOptions: nil
+    let input = try crop(pixelBuffer, to: box)
+    let output = try model.prediction(
+      from: try MLDictionaryFeatureProvider(dictionary: ["image": MLFeatureValue(pixelBuffer: input)])
     )
-    return decode(heatmapData.bytes.assumingMemoryBound(to: Float.self), crop: box)
+    guard let array = output.featureValue(for: "heatmaps")?.multiArrayValue,
+          array.count == heatmaps.count else {
+      throw FootPoseError.notReady("FootNet returned no heatmaps")
+    }
+    try read(array)
+    return heatmaps.withUnsafeBufferPointer { decode($0.baseAddress!, crop: box) }
   }
 
-  private func tensor(_ data: NSMutableData, shape: [Int]) throws -> ORTValue {
-    try ORTValue(tensorData: data, elementType: .float, shape: shape.map { NSNumber(value: $0) })
+  private func read(_ array: MLMultiArray) throws {
+    guard array.dataType == .float16 else {
+      throw FootPoseError.notReady("FootNet heatmaps are \(array.dataType), expected float16")
+    }
+    let count = heatmaps.count
+    try array.withUnsafeBytes { raw in
+      heatmaps.withUnsafeMutableBufferPointer { floats in
+        var source = vImage_Buffer(data: UnsafeMutableRawPointer(mutating: raw.baseAddress!),
+                                   height: 1, width: vImagePixelCount(count), rowBytes: count * 2)
+        var destination = vImage_Buffer(data: floats.baseAddress!,
+                                        height: 1, width: vImagePixelCount(count), rowBytes: count * 4)
+        vImageConvert_Planar16FtoPlanarF(&source, &destination, vImage_Flags(kvImageNoFlags))
+      }
+    }
   }
 
-  private func fillInput(from pixelBuffer: CVPixelBuffer, crop box: Crop) throws {
+  // The part of the crop inside the frame, scaled into the model's buffer; the rest stays black, as a replicated
+  // border would lie anyway.
+  private func crop(_ pixelBuffer: CVPixelBuffer, to box: Crop) throws -> CVPixelBuffer {
     guard CVPixelBufferGetPixelFormatType(pixelBuffer) == kCVPixelFormatType_32BGRA else {
       throw FootPoseError.unsupportedFrame("expected BGRA, use pixelFormat 'rgb'")
     }
@@ -71,7 +107,6 @@ final class FootNetRunner {
     let width = CVPixelBufferGetWidth(pixelBuffer)
     let height = CVPixelBufferGetHeight(pixelBuffer)
     let rowBytes = CVPixelBufferGetBytesPerRow(pixelBuffer)
-    // The part of the crop that is inside the frame; the rest stays black, as a replicated border would lie anyway.
     let left = max(0, Int(box.x.rounded()))
     let top = max(0, Int(box.y.rounded()))
     let right = min(width, Int((box.x + box.side).rounded()))
@@ -90,46 +125,42 @@ final class FootNetRunner {
       throw FootPoseError.unsupportedFrame("foot crop is empty")
     }
 
+    var crop: CVPixelBuffer?
+    guard CVPixelBufferPoolCreatePixelBuffer(nil, pool, &crop) == kCVReturnSuccess, let crop else {
+      throw FootPoseError.notReady("no pixel buffer for the foot crop")
+    }
+    CVPixelBufferLockBaseAddress(crop, [])
+    defer { CVPixelBufferUnlockBaseAddress(crop, []) }
+    guard let cropBase = CVPixelBufferGetBaseAddress(crop) else {
+      throw FootPoseError.notReady("no pixel buffer for the foot crop")
+    }
+    let cropRowBytes = CVPixelBufferGetBytesPerRow(crop)
+    memset(cropBase, 0, cropRowBytes * FootNet.size)
+
     var source = vImage_Buffer(
       data: base.advanced(by: top * rowBytes + left * 4),
       height: vImagePixelCount(bottom - top),
       width: vImagePixelCount(right - left),
       rowBytes: rowBytes
     )
-    let cropRowBytes = FootNet.size * 4
-    let scaled = crop.withUnsafeMutableBytes { bytes -> vImage_Error in
-      bytes.initializeMemory(as: UInt8.self, repeating: 0)
-      var destination = vImage_Buffer(
-        data: bytes.baseAddress! + insetY * cropRowBytes + insetX * 4,
-        height: vImagePixelCount(scaledHeight),
-        width: vImagePixelCount(scaledWidth),
-        rowBytes: cropRowBytes
-      )
-      return vImageScale_ARGB8888(&source, &destination, nil, vImage_Flags(kvImageNoFlags))
-    }
+    var destination = vImage_Buffer(
+      data: cropBase.advanced(by: insetY * cropRowBytes + insetX * 4),
+      height: vImagePixelCount(scaledHeight),
+      width: vImagePixelCount(scaledWidth),
+      rowBytes: cropRowBytes
+    )
+    let scaled = vImageScale_ARGB8888(&source, &destination, nil, vImage_Flags(kvImageNoFlags))
     guard scaled == kvImageNoError else {
       throw FootPoseError.unsupportedFrame("vImage scale failed (\(scaled))")
     }
-
-    let plane = FootNet.size * FootNet.size
-    let input = inputData.mutableBytes.assumingMemoryBound(to: Float.self)
-    crop.withUnsafeBufferPointer { pixels in
-      for index in 0..<plane {
-        let blue = Float(pixels[index * 4]) / 255
-        let green = Float(pixels[index * 4 + 1]) / 255
-        let red = Float(pixels[index * 4 + 2]) / 255
-        input[index] = (red - FootNet.mean[0]) / FootNet.std[0]
-        input[plane + index] = (green - FootNet.mean[1]) / FootNet.std[1]
-        input[2 * plane + index] = (blue - FootNet.mean[2]) / FootNet.std[2]
-      }
-    }
+    return crop
   }
 
   // Peak of each heatmap, refined by a softmax-weighted mean over its neighbourhood, then mapped back to the frame.
-  private func decode(_ heatmaps: UnsafePointer<Float>, crop box: Crop) -> [Double] {
+  private func decode(_ maps: UnsafePointer<Float>, crop box: Crop) -> [Double] {
     let plane = FootNet.size * FootNet.size
     return (0..<FootNet.joints).flatMap { joint -> [Double] in
-      let map = heatmaps + joint * plane
+      let map = maps + joint * plane
       var peak: Float = 0
       var index: vDSP_Length = 0
       vDSP_maxvi(map, 1, &peak, &index, vDSP_Length(plane))
