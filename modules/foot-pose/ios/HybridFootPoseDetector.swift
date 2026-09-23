@@ -58,6 +58,20 @@ private enum Feet {
   static let joints: [(side: Int, indices: [Int])] = [(0, [2, 3, 4]), (1, [5, 6, 7])]
   static let ankles = [0, 1]
   static let minScore = 0.2
+  // A foot FootNet is following needs this many points it is sure of, or it counts as lost. Three is what a crop can
+  // be built from; on real frames the model is sure of 3.9 of its 8 points on average, so asking for more loses the
+  // foot most of the time.
+  static let trackedScore = 0.3
+  static let trackedPoints = 3
+  // A foot cannot change its apparent size by much in a thirtieth of a second, so the crop may only grow or shrink
+  // by this much per frame. Without it a crop built from three points that happen to sit together collapses onto a
+  // corner of the foot, the model sees even less in it, and it never recovers.
+  static let sizeStep = 1.2
+  // How long a crop keeps being looked at after the last frame the model was sure in it.
+  static let lostAfter: CFTimeInterval = 0.3
+  // How often the body model may search the whole frame for a foot FootNet is not following. Searching costs more
+  // than a frame's whole budget, and a foot that is out of frame would otherwise have it searching on every one.
+  static let searchInterval: CFTimeInterval = 0.25
 }
 
 private final class Runner {
@@ -68,6 +82,14 @@ private final class Runner {
   private let simccXData: NSMutableData
   private let simccYData: NSMutableData
   private var letterbox = [UInt8](repeating: 0, count: Input.width * Input.height * 4)
+  // Where to look for each foot next, in frame pixels, when it was last seen there, and the last search's points,
+  // which seed a crop for a foot that has none.
+  private var tracked: [Crop?] = [nil, nil]
+  private var seenAt: [CFTimeInterval] = [0, 0]
+  // How bright each foot's crop was, to tell a crop of a foot from one of nothing.
+  private var brightness: [Double] = [0, 0]
+  private var searched: [Double] = []
+  private var searchedAt: CFTimeInterval = 0
 
   init(spec: ModelSpec, session: ORTSession) {
     self.spec = spec
@@ -76,50 +98,69 @@ private final class Runner {
     simccYData = NSMutableData(length: spec.joints * Input.height * Input.simccSplit * MemoryLayout<Float>.size)!
   }
 
+  // The body model searches the whole frame; FootNet follows each foot in its own crop and says where it is next
+  // frame. So the search only runs when a foot is missing, and the frames in between cost FootNet alone.
   func run(_ pixelBuffer: CVPixelBuffer, refine: Bool) throws -> FootPoseResult {
     let started = CACurrentMediaTime()
-    let transform = try fillInput(from: pixelBuffer)
-    let prepared = CACurrentMediaTime()
-    try session.run(
-      withInputs: ["input": try tensor(inputData, shape: [1, 3, Input.height, Input.width])],
-      outputs: [
-        "simcc_x": try tensor(simccXData, shape: [1, spec.joints, Input.width * Input.simccSplit]),
-        "simcc_y": try tensor(simccYData, shape: [1, spec.joints, Input.height * Input.simccSplit]),
-      ],
-      runOptions: nil
-    )
-    let finished = CACurrentMediaTime()
-    let points = decode(transform)
-    let refined = refine
-      ? self.refine(points, in: pixelBuffer)
+    let following = refine && footNet != nil
+    let search = !following || (tracked.contains(where: { $0 == nil }) && started - searchedAt >= Feet.searchInterval)
+    var points = [Double](repeating: 0, count: spec.footJoints.count * 3)
+    var prepared = started
+    var finished = started
+    if search {
+      let transform = try fillInput(from: pixelBuffer)
+      prepared = CACurrentMediaTime()
+      try session.run(
+        withInputs: ["input": try tensor(inputData, shape: [1, 3, Input.height, Input.width])],
+        outputs: [
+          "simcc_x": try tensor(simccXData, shape: [1, spec.joints, Input.width * Input.simccSplit]),
+          "simcc_y": try tensor(simccYData, shape: [1, spec.joints, Input.height * Input.simccSplit]),
+        ],
+        runOptions: nil
+      )
+      finished = CACurrentMediaTime()
+      points = decode(transform)
+      searched = points
+      searchedAt = started
+    }
+    let refined = following
+      ? self.refine(in: pixelBuffer, at: started)
       : [Double](repeating: 0, count: 2 * FootNet.joints * 3)
+    let width = Double(CVPixelBufferGetWidth(pixelBuffer))
+    let height = Double(CVPixelBufferGetHeight(pixelBuffer))
     return FootPoseResult(
       points: points,
       refined: refined,
+      crops: tracked.enumerated().flatMap { side, box in
+        guard let box else { return [0.0, 0.0, 0.0, 0.0] }
+        return [box.x / width, box.y / height, box.side / width, brightness[side]]
+      },
       preprocessMs: (prepared - started) * 1000,
       inferenceMs: (finished - prepared) * 1000,
       refineMs: (CACurrentMediaTime() - finished) * 1000
     )
   }
 
-  // A crop around each foot RTMPose found goes to FootNet, whose 8 points come back in frame coordinates.
-  private func refine(_ points: [Double], in pixelBuffer: CVPixelBuffer) -> [Double] {
+  // Each foot's crop goes to FootNet, and its 8 points come back in frame coordinates. A crop the model was sure in
+  // moves onto its own points for the next frame; one it was not sure in stays where it is for a moment, because the
+  // foot is usually still there and the whole-frame search costs more than the frame's budget.
+  private func refine(in pixelBuffer: CVPixelBuffer, at now: CFTimeInterval) -> [Double] {
     let empty = [Double](repeating: 0, count: FootNet.joints * 3)
     guard let footNet else { return empty + empty }
     let width = Double(CVPixelBufferGetWidth(pixelBuffer))
     let height = Double(CVPixelBufferGetHeight(pixelBuffer))
-    return Feet.joints.flatMap { foot -> [Double] in
-      var seen = foot.indices
-        .filter { points[$0 * 3 + 2] >= Feet.minScore }
-        .map { (x: points[$0 * 3] * width, y: points[$0 * 3 + 1] * height) }
-      let ankle = Feet.ankles[foot.side]
-      if seen.count < 2, points[ankle * 3 + 2] >= Feet.minScore {
-        seen.append((x: points[ankle * 3] * width, y: points[ankle * 3 + 1] * height))
-      }
-      guard seen.count >= 2, let box = FootNetRunner.box(around: seen),
+    var refined = [[Double]](repeating: empty, count: Feet.joints.count)
+    var sureCount = [Int](repeating: 0, count: Feet.joints.count)
+    for foot in Feet.joints {
+      guard let box = tracked[foot.side] ?? seed(for: foot, width: width, height: height),
             let found = try? footNet.run(pixelBuffer, crop: box), found.count == FootNet.joints * 3 else {
-        return empty
+        tracked[foot.side] = nil
+        brightness[foot.side] = 0
+        continue
       }
+      brightness[foot.side] = footNet.brightness
+      // Every point the model found is passed on with its score, however low; whoever places the shoe decides what to
+      // trust. Only whether to keep following this crop is decided here.
       var normalized = [Double]()
       normalized.reserveCapacity(found.count)
       for point in stride(from: 0, to: found.count, by: 3) {
@@ -127,8 +168,49 @@ private final class Runner {
         normalized.append(found[point + 1] / height)
         normalized.append(found[point + 2])
       }
-      return normalized
+      refined[foot.side] = normalized
+
+      let sure = stride(from: 0, to: found.count, by: 3)
+        .filter { found[$0 + 2] >= Feet.trackedScore }
+        .map { (x: found[$0], y: found[$0 + 1]) }
+      guard sure.count >= Feet.trackedPoints, let next = FootNetRunner.box(around: sure) else {
+        tracked[foot.side] = now - seenAt[foot.side] <= Feet.lostAfter ? box : nil
+        continue
+      }
+      // Follow the foot's new position, but hold the crop's size steady.
+      let side = min(max(next.side, box.side / Feet.sizeStep), box.side * Feet.sizeStep)
+      tracked[foot.side] = Crop(x: next.x + (next.side - side) / 2, y: next.y + (next.side - side) / 2, side: side)
+      seenAt[foot.side] = now
+      sureCount[foot.side] = sure.count
     }
+    dropTheDouble(&refined, sureCount: sureCount, empty: empty)
+    return refined.flatMap { $0 }
+  }
+
+  // Two crops can drift onto the same foot, and then both of them follow it for good. The less certain one is let go
+  // and the body model picks its foot up again.
+  private func dropTheDouble(_ refined: inout [[Double]], sureCount: [Int], empty: [Double]) {
+    guard let left = tracked[0], let right = tracked[1] else { return }
+    let apart = hypot(left.x + left.side / 2 - right.x - right.side / 2,
+                      left.y + left.side / 2 - right.y - right.side / 2)
+    guard apart < min(left.side, right.side) / 2 else { return }
+    let loser = sureCount[0] < sureCount[1] ? 0 : 1
+    tracked[loser] = nil
+    refined[loser] = empty
+  }
+
+  // The crop to pick a foot up in, from what the body model last saw of it.
+  private func seed(for foot: (side: Int, indices: [Int]), width: Double, height: Double) -> Crop? {
+    let points = searched
+    guard points.count == spec.footJoints.count * 3 else { return nil }
+    var seen = foot.indices
+      .filter { points[$0 * 3 + 2] >= Feet.minScore }
+      .map { (x: points[$0 * 3] * width, y: points[$0 * 3 + 1] * height) }
+    let ankle = Feet.ankles[foot.side]
+    if seen.count < 2, points[ankle * 3 + 2] >= Feet.minScore {
+      seen.append((x: points[ankle * 3] * width, y: points[ankle * 3 + 1] * height))
+    }
+    return seen.count >= 2 ? FootNetRunner.box(around: seen) : nil
   }
 
   private func tensor(_ data: NSMutableData, shape: [Int]) throws -> ORTValue {

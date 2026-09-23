@@ -12,8 +12,10 @@ enum FootNet {
   static let resource = "footnet"
   static let size = 256
   static let joints = 8
-  // The crop is this much wider than the box around the points RTMPose found, matching the training crops.
-  static let context = 1.45
+  // The crop is this much wider than the box around the foot's points. Training saw 1.15 to 1.7 and validated at 1.3,
+  // but on 94 real feet the wider crop is measurably better: 3.9 of 8 sure points against 3.0 at 1.3, and a fifth of
+  // the feet with nothing at all instead of a third.
+  static let context = 1.8
   // Peaks are refined over this radius, as `decode_points` does in training.
   static let refineRadius = 2
 }
@@ -63,9 +65,13 @@ final class FootNetRunner {
     return Crop(x: (xs.min()! + xs.max()!) / 2 - side / 2, y: (ys.min()! + ys.max()!) / 2 - side / 2, side: side)
   }
 
+  /// The average brightness of the last crop, to tell a crop of a foot from one of nothing.
+  private(set) var brightness: Double = 0
+
   /// Returns 8 × [x, y, score] in frame pixels.
   func run(_ pixelBuffer: CVPixelBuffer, crop box: Crop) throws -> [Double] {
     let input = try crop(pixelBuffer, to: box)
+    brightness = Self.brightness(of: input)
     let output = try model.prediction(
       from: try MLDictionaryFeatureProvider(dictionary: ["image": MLFeatureValue(pixelBuffer: input)])
     )
@@ -75,6 +81,24 @@ final class FootNetRunner {
     }
     try read(array)
     return heatmaps.withUnsafeBufferPointer { decode($0.baseAddress!, crop: box) }
+  }
+
+  // Every 16th pixel is enough for an average, and it costs microseconds.
+  private static func brightness(of buffer: CVPixelBuffer) -> Double {
+    CVPixelBufferLockBaseAddress(buffer, .readOnly)
+    defer { CVPixelBufferUnlockBaseAddress(buffer, .readOnly) }
+    guard let base = CVPixelBufferGetBaseAddress(buffer)?.assumingMemoryBound(to: UInt8.self) else { return 0 }
+    let rowBytes = CVPixelBufferGetBytesPerRow(buffer)
+    var sum = 0
+    var count = 0
+    for y in stride(from: 0, to: FootNet.size, by: 4) {
+      for x in stride(from: 0, to: FootNet.size, by: 4) {
+        let pixel = base + y * rowBytes + x * 4
+        sum += Int(pixel[0]) + Int(pixel[1]) + Int(pixel[2])
+        count += 3
+      }
+    }
+    return Double(sum) / Double(count) / 255
   }
 
   private func read(_ array: MLMultiArray) throws {

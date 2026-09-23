@@ -10,7 +10,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Camera, useCameraPermission } from 'react-native-vision-camera';
 import { FootOverlay } from './FootOverlay';
 import { ShoeLayer } from './ShoeLayer';
-import type { Size } from './footAxes';
+import { REFINED_MIN_SCORE, type Size } from './footAxes';
 import { useFootPose } from './useFootPose';
 
 type Layer = 'axes' | 'shoe' | 'both';
@@ -47,21 +47,38 @@ function Toggle<T extends string>({
   );
 }
 
+// How many of FootNet's 16 points (8 per foot) it is sure of right now: the plain measure of whether our own model
+// is carrying the pose or RTMPose is.
+function sureOf(refined?: readonly number[]): number {
+  if (!refined) {
+    return 0;
+  }
+  let sure = 0;
+  for (let point = 2; point < refined.length; point += 3) {
+    if (refined[point] >= REFINED_MIN_SCORE) {
+      sure += 1;
+    }
+  }
+  return sure;
+}
+
 function Stats({
   status,
   fps,
-  preprocessMs,
-  inferenceMs,
+  searchMs,
   matteMs,
   refineMs,
+  refined,
+  crops,
   frame,
 }: {
   refineMs?: number;
+  refined?: number[];
+  crops?: number[];
   frame?: Size;
   status: string;
   fps: number;
-  preprocessMs?: number;
-  inferenceMs?: number;
+  searchMs?: number;
   matteMs?: number;
 }) {
   if (status !== 'ready') {
@@ -69,9 +86,10 @@ function Stats({
   }
   return (
     <Text style={styles.stats}>
-      {fps.toFixed(1)} fps · модель {inferenceMs?.toFixed(0) ?? '–'} мс ·
-      підготовка {preprocessMs?.toFixed(0) ?? '–'} мс
-      {refineMs ? ` · стопи ${refineMs.toFixed(0)} мс` : ''}
+      {fps.toFixed(1)} fps · стопи {refineMs?.toFixed(0) ?? '–'} мс{' '}
+      {sureOf(refined)}
+      /16 · кроп {crops?.[3].toFixed(2) ?? '–'}/{crops?.[7].toFixed(2) ?? '–'} ·
+      пошук {searchMs?.toFixed(0) ?? '–'} мс
       {matteMs === undefined ? '' : ` · маска ${matteMs.toFixed(0)} мс`}
       {frame ? ` · ${frame.width}×${frame.height}` : ''}
     </Text>
@@ -139,10 +157,11 @@ function LiveFeet() {
         <Stats
           status={status}
           fps={fps}
-          preprocessMs={sample?.preprocessMs}
-          inferenceMs={sample?.inferenceMs}
+          searchMs={sample?.searchMs}
           matteMs={showShoe ? sample?.matteMs : undefined}
           refineMs={sample?.refineMs}
+          refined={sample?.refined}
+          crops={sample?.crops}
           frame={
             sample
               ? { width: sample.frameWidth, height: sample.frameHeight }

@@ -37,7 +37,7 @@ export function framePoints({
 // FootNet's eight points per foot, as the detector returns them: only the big toe, little toe and heel are set, which
 // is what the shoe pose reads.
 export function refinedPoints(
-  feet: Array<{ toe: [number, number]; heel: [number, number] } | null>,
+  feet: Array<{ toe: [number, number]; heel?: [number, number] } | null>,
 ): number[] {
   return feet.flatMap(foot => {
     const empty = [0, 0, 0];
@@ -51,7 +51,7 @@ export function refinedPoints(
       empty,
       empty,
       [foot.toe[0], foot.toe[1] + 0.01, score],
-      [...foot.heel, score],
+      foot.heel ? [...foot.heel, score] : empty,
       empty,
       empty,
     ].flat();

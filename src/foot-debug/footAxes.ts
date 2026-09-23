@@ -71,9 +71,10 @@ function refinedFoot(
       : undefined;
   };
   const toe = at('bigToe');
-  const heel = at('heel');
-  // FootNet sees the heel even from the front, so the shoe pose can rely on it and drop the ankle.
-  return toe && heel ? { toe, smallToe: at('littleToe'), heel } : undefined;
+  // The toes are what the shoe is anchored to, so FootNet's are worth having on their own. Its heel comes with them
+  // when it is sure of it — which is about half the time, because looking down at your own feet hides the heel behind
+  // the foot — and the body model's ankle stands in for it otherwise.
+  return toe ? { toe, smallToe: at('littleToe'), heel: at('heel') } : undefined;
 }
 
 export function footAxes(
@@ -92,22 +93,24 @@ export function footAxes(
     const heel = joint(points, names.heel);
     // A shoe needs the toe and something at the back of the foot: the ankle, or the heel.
     const score = Math.min(toe.score, Math.max(ankle.score, heel.score));
-    if (score < minScore) {
-      return [];
-    }
-    const anchor = { x: toe.x, y: toe.y };
+    // FootNet follows a foot on its own, so its points stand even on the frames where the body model did not run.
     const better = refined && refinedFoot(refined, index);
     if (better) {
       return [
         {
           side,
           ...better,
+          ankle: better.heel ? undefined : seen(names.ankle),
           score: Math.max(score, REFINED_MIN_SCORE),
           refined: true,
-          anchor,
+          anchor: score >= minScore ? { x: toe.x, y: toe.y } : better.toe,
         },
       ];
     }
+    if (score < minScore) {
+      return [];
+    }
+    const anchor = { x: toe.x, y: toe.y };
     return [
       {
         side,

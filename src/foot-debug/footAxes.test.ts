@@ -1,5 +1,5 @@
 import { footAxes, frameToView } from './footAxes';
-import { framePoints } from './testPoints';
+import { framePoints, refinedPoints } from './testPoints';
 
 jest.mock('react-native-nitro-modules', () => ({ NitroModules: {} }));
 
@@ -31,6 +31,48 @@ describe('footAxes', () => {
         anchor: { x: 0.65, y: 0.95 },
       },
     ]);
+  });
+
+  // FootNet follows each foot in its own crop, so on the frames where the body model did not run its points are all
+  // there is, and they have to stand on their own.
+  it('keeps a FootNet foot the body model did not see', () => {
+    const feet = footAxes(
+      framePoints({}),
+      0.25,
+      refinedPoints([{ toe: [0.35, 0.95], heel: [0.3, 0.8] }, null]),
+    );
+    expect(feet).toHaveLength(1);
+    expect(feet[0]).toMatchObject({
+      side: 'left',
+      refined: true,
+      toe: { x: 0.35, y: 0.95 },
+      heel: { x: 0.3, y: 0.8 },
+      anchor: { x: 0.35, y: 0.95 },
+    });
+  });
+
+  // Looking down at your own feet hides the heel, so FootNet is unsure of it about half the time. Its toes are still
+  // worth having, and the body model's ankle stands in for the back of the foot.
+  it('keeps FootNet toes without its heel and takes the ankle from the body model', () => {
+    const points = framePoints({
+      left: {
+        heel: [0.4, 0.85],
+        toe: [0.35, 0.95],
+        score: 0.9,
+        ankle: [0.42, 0.8, 0.9],
+      },
+    });
+    const [foot] = footAxes(
+      points,
+      0.25,
+      refinedPoints([{ toe: [0.3, 0.9] }, null]),
+    );
+    expect(foot).toMatchObject({
+      refined: true,
+      toe: { x: 0.3, y: 0.9 },
+      ankle: { x: 0.42, y: 0.8 },
+    });
+    expect(foot.heel).toBeUndefined();
   });
 
   it('drops a foot below the score threshold', () => {
