@@ -27,6 +27,9 @@ struct Crop {
 final class FootNetRunner {
   private let session: ORTSession
   private let inputData = NSMutableData(length: 3 * FootNet.size * FootNet.size * MemoryLayout<Float>.size)!
+  // Bound up front, as for RTMPose: a tensor read back from the session owns its buffer only as long as the run's
+  // output value lives, and that buffer went away under us.
+  private let heatmapData = NSMutableData(length: FootNet.joints * FootNet.size * FootNet.size * MemoryLayout<Float>.size)!
   private var crop = [UInt8](repeating: 0, count: FootNet.size * FootNet.size * 4)
 
   init(session: ORTSession) {
@@ -44,15 +47,12 @@ final class FootNetRunner {
   /// Returns 8 × [x, y, score] in frame pixels.
   func run(_ pixelBuffer: CVPixelBuffer, crop box: Crop) throws -> [Double] {
     try fillInput(from: pixelBuffer, crop: box)
-    let outputs = try session.run(
+    try session.run(
       withInputs: ["image": try tensor(inputData, shape: [1, 3, FootNet.size, FootNet.size])],
-      outputNames: ["heatmaps"],
+      outputs: ["heatmaps": try tensor(heatmapData, shape: [1, FootNet.joints, FootNet.size, FootNet.size])],
       runOptions: nil
     )
-    guard let heatmaps = try outputs["heatmaps"]?.tensorData() as Data? else { return [] }
-    return heatmaps.withUnsafeBytes { raw in
-      decode(raw.bindMemory(to: Float.self).baseAddress!, crop: box)
-    }
+    return decode(heatmapData.bytes.assumingMemoryBound(to: Float.self), crop: box)
   }
 
   private func tensor(_ data: NSMutableData, shape: [Int]) throws -> ORTValue {
@@ -80,8 +80,10 @@ final class FootNetRunner {
       throw FootPoseError.unsupportedFrame("foot crop outside the frame")
     }
     let scale = Double(FootNet.size) / box.side
-    let insetX = Int((Double(left) - box.x) * scale)
-    let insetY = Int((Double(top) - box.y) * scale)
+    // Where that part lands in the crop. Rounding the frame rect outwards makes this a fraction of a pixel negative,
+    // which would put the scaled copy in front of the buffer, so it is clamped to the buffer.
+    let insetX = min(FootNet.size - 1, max(0, Int((Double(left) - box.x) * scale)))
+    let insetY = min(FootNet.size - 1, max(0, Int((Double(top) - box.y) * scale)))
     let scaledWidth = min(FootNet.size - insetX, Int((Double(right - left) * scale).rounded()))
     let scaledHeight = min(FootNet.size - insetY, Int((Double(bottom - top) * scale).rounded()))
     guard scaledWidth > 0, scaledHeight > 0 else {
