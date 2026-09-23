@@ -44,8 +44,8 @@ export function ShoeLayer({
     [sample.frameWidth, sample.frameHeight],
   );
   const intrinsics = intrinsicsFor(frame, sample.cameraMatrix);
-  const topLeft = frameToView({ x: 0, y: 0 }, frame, view, false);
-  const bottomRight = frameToView({ x: 1, y: 1 }, frame, view, false);
+  const topLeft = frameToView({ x: 0, y: 0 }, frame, view);
+  const bottomRight = frameToView({ x: 1, y: 1 }, frame, view);
   const down = gravityInBackCamera(gravity.current());
 
   const shoes = feet.flatMap<ShoePose>(foot => {

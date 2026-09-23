@@ -1,4 +1,5 @@
 import {
+  CARRY_MS,
   HOLD_MS,
   KEEP_SCORE,
   START_SCORE,
@@ -6,7 +7,7 @@ import {
   updateTracks,
   type FootTrack,
 } from './footTracker';
-import { framePoints } from './testPoints';
+import { framePoints, refinedPoints } from './testPoints';
 
 jest.mock('react-native-nitro-modules', () => ({ NitroModules: {} }));
 
@@ -20,11 +21,13 @@ function counter() {
   return () => ++id;
 }
 
-function run(frames: Array<{ time: number; points: number[] }>): FootTrack[] {
+function run(
+  frames: Array<{ time: number; points: number[]; refined?: number[] }>,
+): FootTrack[] {
   const nextId = counter();
   return frames.reduce<FootTrack[]>(
     (tracks, frame) =>
-      updateTracks(tracks, frame.points, undefined, frame.time, nextId),
+      updateTracks(tracks, frame.points, frame.refined, frame.time, nextId),
     [],
   );
 }
@@ -96,6 +99,44 @@ describe('updateTracks', () => {
     const [foot] = trackedFeet(tracks, 33);
     expect(foot.heel?.x).toBeGreaterThan(0.4);
     expect(foot.heel?.x).toBeLessThan(0.405);
+  });
+
+  // FootNet runs a few times a second and sees the heel the body model guesses wrong, so between its runs the foot
+  // keeps FootNet's shape and only moves with the body model.
+  it('carries FootNet points by the body model between its runs', () => {
+    const body = (dx: number) =>
+      framePoints({
+        left: { heel: [0.4 + dx, 0.85], toe: [0.35 + dx, 0.95], score: 0.9 },
+      });
+    const tracks = run([
+      {
+        time: 0,
+        points: body(0),
+        refined: refinedPoints([{ toe: [0.35, 0.95], heel: [0.3, 0.8] }, null]),
+      },
+      { time: 33, points: body(0.1) },
+    ]);
+    const [foot] = trackedFeet(tracks, 33);
+    // The heel stayed at FootNet's height rather than jumping to the body model's, and moved right with the foot.
+    expect(foot.heel?.y).toBeCloseTo(0.8, 3);
+    expect(foot.heel?.x).toBeGreaterThan(0.3);
+  });
+
+  it('falls back to the body model when FootNet has been quiet too long', () => {
+    const body = (dx: number) =>
+      framePoints({
+        left: { heel: [0.4 + dx, 0.85], toe: [0.35 + dx, 0.95], score: 0.9 },
+      });
+    const tracks = run([
+      {
+        time: 0,
+        points: body(0),
+        refined: refinedPoints([{ toe: [0.35, 0.95], heel: [0.3, 0.8] }, null]),
+      },
+      { time: CARRY_MS + 1, points: body(0) },
+    ]);
+    const [foot] = trackedFeet(tracks, CARRY_MS + 1);
+    expect(foot.heel?.y).toBeGreaterThan(0.84);
   });
 
   it('marks a held foot as stale', () => {

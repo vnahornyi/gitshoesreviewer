@@ -8,7 +8,6 @@ import {
 export type Point = { x: number; y: number };
 export type Size = { width: number; height: number };
 export type FootSide = 'left' | 'right';
-export type SceneMode = 'mirror' | 'direct';
 
 // The big toe is always there; the rest is whatever the model saw well enough.
 export type FootPoints = {
@@ -21,6 +20,10 @@ export type FootPoints = {
 export type FootAxis = FootPoints & {
   side: FootSide;
   score: number;
+  // FootNet's points, or the body model's. The body model's big toe, which is there either way, and which the frames
+  // between two FootNet runs are carried by.
+  refined: boolean;
+  anchor: Point;
 };
 
 type Joint = Point & { score: number };
@@ -52,14 +55,6 @@ const SIDE_JOINTS: Record<
   },
 };
 
-// The model names feet by how they look in the image; a mirror shows your left foot as a right one.
-export function sideInScene(modelSide: FootSide, scene: SceneMode): FootSide {
-  if (scene === 'direct') {
-    return modelSide;
-  }
-  return modelSide === 'left' ? 'right' : 'left';
-}
-
 // FootNet's own score for a point; below it the peak is a guess (the 5th percentile on held-out SynFoot).
 export const REFINED_MIN_SCORE = 0.3;
 
@@ -86,7 +81,7 @@ export function footAxes(
   minScore: number,
   refined?: readonly number[],
 ): FootAxis[] {
-  return (['left', 'right'] as const).flatMap((side, index) => {
+  return (['left', 'right'] as const).flatMap((side, index): FootAxis[] => {
     const names = SIDE_JOINTS[side];
     const toe = joint(points, names.toe);
     const seen = (name: FootJoint): Point | undefined => {
@@ -100,35 +95,40 @@ export function footAxes(
     if (score < minScore) {
       return [];
     }
+    const anchor = { x: toe.x, y: toe.y };
     const better = refined && refinedFoot(refined, index);
     if (better) {
-      return [{ side, ...better, score: Math.max(score, REFINED_MIN_SCORE) }];
+      return [
+        {
+          side,
+          ...better,
+          score: Math.max(score, REFINED_MIN_SCORE),
+          refined: true,
+          anchor,
+        },
+      ];
     }
     return [
       {
         side,
-        toe: { x: toe.x, y: toe.y },
+        toe: anchor,
         smallToe: seen(names.smallToe),
         ankle: seen(names.ankle),
         heel: seen(names.heel),
         score,
+        refined: false,
+        anchor,
       },
     ];
   });
 }
 
-export function frameToView(
-  point: Point,
-  frame: Size,
-  view: Size,
-  flipX: boolean,
-): Point {
+export function frameToView(point: Point, frame: Size, view: Size): Point {
   const scale = Math.min(view.width / frame.width, view.height / frame.height);
   const offsetX = (view.width - frame.width * scale) / 2;
   const offsetY = (view.height - frame.height * scale) / 2;
-  const x = flipX ? 1 - point.x : point.x;
   return {
-    x: offsetX + x * frame.width * scale,
+    x: offsetX + point.x * frame.width * scale,
     y: offsetY + point.y * frame.height * scale,
   };
 }

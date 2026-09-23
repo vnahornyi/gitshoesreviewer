@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { createFootPoseDetector, type FootModel } from 'react-native-foot-pose';
+import { createFootPoseDetector } from 'react-native-foot-pose';
 import { createPersonMatte, createSceneLight } from 'react-native-shoe-stage';
 import {
   CommonResolutions,
@@ -33,13 +33,12 @@ const FPS_WINDOW = 30;
 export type FrameExtras = {
   legMatte: boolean;
   sceneLight: boolean;
-  refine: boolean;
 };
 
-export function useFootPose(
-  model: FootModel,
-  { legMatte, sceneLight, refine }: FrameExtras,
-) {
+// The body model. RTMW x-l sees more joints but is four times slower, and the foot joints are the same.
+const MODEL = 'rtmpose-m';
+
+export function useFootPose({ legMatte, sceneLight }: FrameExtras) {
   const detector = useMemo(createFootPoseDetector, []);
   const matte = useMemo(createPersonMatte, []);
   const light = useMemo(createSceneLight, []);
@@ -53,19 +52,19 @@ export function useFootPose(
   useEffect(() => {
     matte.enabled = legMatte;
     light.enabled = sceneLight;
-    detector.refine = refine;
-  }, [detector, matte, light, legMatte, sceneLight, refine]);
+    detector.refine = true;
+  }, [detector, matte, light, legMatte, sceneLight]);
   const tracks = useRef<FootTrack[]>([]);
   const lastId = useRef(0);
 
   useEffect(() => {
-    detector.load(model);
+    detector.load(MODEL);
     arrivals.current = [];
     tracks.current = [];
     setSample(null);
     setFeet([]);
     setStatus(detector.status);
-  }, [detector, model]);
+  }, [detector]);
 
   const onSample = useCallback((next: FootPoseSample) => {
     const now = Date.now();

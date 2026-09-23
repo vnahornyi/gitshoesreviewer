@@ -1,11 +1,5 @@
 import { StyleSheet, Text, View } from 'react-native';
-import {
-  frameToView,
-  sideInScene,
-  type Point,
-  type SceneMode,
-  type Size,
-} from './footAxes';
+import { frameToView, type Point, type Size } from './footAxes';
 import type { TrackedFoot } from './footTracker';
 
 const SIDE_COLORS = { left: '#3ddc84', right: '#ff9f0a' } as const;
@@ -19,8 +13,6 @@ type FootOverlayProps = {
   feet: TrackedFoot[];
   frame: Size;
   view: Size;
-  scene: SceneMode;
-  flipX: boolean;
 };
 
 function Axis({
@@ -73,11 +65,9 @@ function Dot({
 
 function Foot({
   foot,
-  scene,
   toView,
 }: {
   foot: TrackedFoot;
-  scene: SceneMode;
   toView: (point: Point) => Point;
 }) {
   const toe = toView(foot.toe);
@@ -86,8 +76,8 @@ function Foot({
     const point = foot[name];
     return point ? [{ name, at: toView(point) }] : [];
   });
-  const side = sideInScene(foot.side, scene);
-  const color = SIDE_COLORS[side];
+  // The side is the one seen in the image, which is also the shoe drawn on that foot.
+  const color = SIDE_COLORS[foot.side];
   return (
     <View
       style={[StyleSheet.absoluteFill, foot.stale && styles.stale]}
@@ -97,23 +87,17 @@ function Foot({
       {extras.map(({ name, at }) => (
         <Dot key={name} at={at} color={color} />
       ))}
-      <Dot at={toe} color={color} label={SIDE_LABELS[side]} />
+      <Dot at={toe} color={color} label={SIDE_LABELS[foot.side]} />
     </View>
   );
 }
 
-export function FootOverlay({
-  feet,
-  frame,
-  view,
-  scene,
-  flipX,
-}: FootOverlayProps) {
-  const toView = (point: Point) => frameToView(point, frame, view, flipX);
+export function FootOverlay({ feet, frame, view }: FootOverlayProps) {
+  const toView = (point: Point) => frameToView(point, frame, view);
   return (
     <View style={StyleSheet.absoluteFill} pointerEvents="none">
       {feet.map(foot => (
-        <Foot key={foot.id} foot={foot} scene={scene} toView={toView} />
+        <Foot key={foot.id} foot={foot} toView={toView} />
       ))}
     </View>
   );

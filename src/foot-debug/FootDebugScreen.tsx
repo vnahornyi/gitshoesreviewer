@@ -7,19 +7,11 @@ import {
   type LayoutChangeEvent,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import type { FootModel } from 'react-native-foot-pose';
 import { Camera, useCameraPermission } from 'react-native-vision-camera';
 import { FootOverlay } from './FootOverlay';
 import { ShoeLayer } from './ShoeLayer';
-import type { SceneMode, Size } from './footAxes';
+import type { Size } from './footAxes';
 import { useFootPose } from './useFootPose';
-
-type CameraPosition = 'back' | 'front';
-
-const MODEL_LABELS: Record<FootModel, string> = {
-  'rtmpose-m': 'RTMPose-m',
-  'rtmw-x-l': 'RTMW x-l',
-};
 
 type Layer = 'axes' | 'shoe' | 'both';
 
@@ -27,32 +19,6 @@ const LAYER_LABELS: Record<Layer, string> = {
   axes: 'Стрілки',
   shoe: '3D',
   both: '3D + точки',
-};
-
-type Leg = 'matte' | 'cylinder';
-
-const LEG_LABELS: Record<Leg, string> = {
-  matte: 'Нога: маска',
-  cylinder: 'Нога: циліндр',
-};
-
-type Points = 'footnet' | 'rtmpose';
-
-const POINTS_LABELS: Record<Points, string> = {
-  footnet: 'Точки: наша модель',
-  rtmpose: 'Точки: RTMPose',
-};
-
-type Look = 'camera' | 'clean';
-
-const LOOK_LABELS: Record<Look, string> = {
-  camera: 'Вигляд: камера',
-  clean: 'Вигляд: чистий',
-};
-
-const SCENE_LABELS: Record<SceneMode, string> = {
-  direct: 'На ноги',
-  mirror: 'Дзеркало',
 };
 
 function Toggle<T extends string>({
@@ -129,20 +95,12 @@ function PermissionGate({ onRequest }: { onRequest: () => void }) {
 
 function LiveFeet() {
   const insets = useSafeAreaInsets();
-  const [scene, setScene] = useState<SceneMode>('direct');
-  const [position, setPosition] = useState<CameraPosition>('back');
-  const [model, setModel] = useState<FootModel>('rtmpose-m');
   const [layer, setLayer] = useState<Layer>('axes');
-  const [leg, setLeg] = useState<Leg>('cylinder');
-  const [look, setLook] = useState<Look>('clean');
-  const [pointsFrom, setPointsFrom] = useState<Points>('rtmpose');
   const [view, setView] = useState<Size | null>(null);
-  const showShoe = layer !== 'axes' && position === 'back';
-  const legMatte = showShoe && leg === 'matte';
-  const { frameOutput, sample, feet, status, fps } = useFootPose(model, {
-    legMatte,
-    sceneLight: showShoe && look === 'camera',
-    refine: pointsFrom === 'footnet',
+  const showShoe = layer !== 'axes';
+  const { frameOutput, sample, feet, status, fps } = useFootPose({
+    legMatte: showShoe,
+    sceneLight: showShoe,
   });
 
   const onLayout = (event: LayoutChangeEvent) => {
@@ -155,7 +113,7 @@ function LiveFeet() {
       <View style={styles.camera} onLayout={onLayout}>
         <Camera
           style={StyleSheet.absoluteFill}
-          device={position}
+          device="back"
           isActive
           outputs={[frameOutput]}
           resizeMode="contain"
@@ -165,8 +123,8 @@ function LiveFeet() {
             feet={feet}
             sample={sample}
             view={view}
-            legMatte={leg === 'matte'}
-            matchCamera={look === 'camera'}
+            legMatte
+            matchCamera
           />
         ) : null}
         {sample && view && layer !== 'shoe' ? (
@@ -174,8 +132,6 @@ function LiveFeet() {
             feet={feet}
             frame={{ width: sample.frameWidth, height: sample.frameHeight }}
             view={view}
-            scene={scene}
-            flipX={position === 'front' && !sample.isMirrored}
           />
         ) : null}
       </View>
@@ -185,7 +141,7 @@ function LiveFeet() {
           fps={fps}
           preprocessMs={sample?.preprocessMs}
           inferenceMs={sample?.inferenceMs}
-          matteMs={legMatte ? sample?.matteMs : undefined}
+          matteMs={showShoe ? sample?.matteMs : undefined}
           refineMs={sample?.refineMs}
           frame={
             sample
@@ -194,24 +150,6 @@ function LiveFeet() {
           }
         />
         <Toggle value={layer} options={LAYER_LABELS} onChange={setLayer} />
-        <Toggle
-          value={pointsFrom}
-          options={POINTS_LABELS}
-          onChange={setPointsFrom}
-        />
-        {showShoe ? (
-          <>
-            <Toggle value={leg} options={LEG_LABELS} onChange={setLeg} />
-            <Toggle value={look} options={LOOK_LABELS} onChange={setLook} />
-          </>
-        ) : null}
-        <Toggle value={model} options={MODEL_LABELS} onChange={setModel} />
-        <Toggle value={scene} options={SCENE_LABELS} onChange={setScene} />
-        <Toggle
-          value={position}
-          options={{ back: 'Задня камера', front: 'Фронтальна' }}
-          onChange={setPosition}
-        />
       </View>
     </View>
   );
