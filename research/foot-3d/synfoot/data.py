@@ -7,7 +7,9 @@ import cv2
 import numpy as np
 from scipy.spatial.transform import Rotation
 
-ROOT = Path(__file__).resolve().parents[1] / "data/synfoot/V1"
+from assets import ASSETS
+
+ROOT = ASSETS / "synfoot/V1"
 WIDTH, HEIGHT = 480, 640
 KEYPOINTS = ("big toe", "2nd toe", "3rd toe", "4th toe", "little toe", "heel", "outer extrema", "inner extrema")
 BLENDER_TO_OPENCV = np.diag([1.0, -1.0, -1.0])

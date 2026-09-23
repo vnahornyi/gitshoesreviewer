@@ -16,15 +16,15 @@ findings and the measured results this skill only points at.
 
 ```bash
 cd research/foot-3d
-uv run python -m footnet.train --renders --init data/footnet/best.pt --epochs 8 --lr 3e-4 --render-repeat 1
+uv run python -m footnet.train --renders --init assets/checkpoints/best.pt --epochs 8 --lr 3e-4 --render-repeat 1
 uv run python -m footnet.real          # RTMPose crop → FootNet → PnP on real frames, results/footnet/real/
 uv run python -m footnet.export        # best.pt → model/footnet.mlmodelc, with a parity check
-cp -R data/footnet/footnet.mlmodelc ../../modules/foot-pose/model/
+cp -R assets/checkpoints/footnet.mlmodelc ../../model/
 cd ../../ios && bundle exec pod install
 ```
 
 Training writes `results/footnet/log.csv` (one row per epoch) and two checkpoints:
-`data/footnet/last.pt` and `data/footnet/best.pt`, where "best" means the lowest **SynFoot**
+`assets/checkpoints/last.pt` and `assets/checkpoints/best.pt`, where "best" means the lowest **SynFoot**
 median — not the render median. Save a named copy of the checkpoint you start from
 (`v1-synfoot.pt`, `v2-renders-7k.pt`, …), because `best.pt` is overwritten in place and there is
 otherwise nothing to compare against or fall back to.

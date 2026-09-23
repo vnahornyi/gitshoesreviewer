@@ -44,7 +44,7 @@ A shoe model is normalized once, offline, and **every** layer assumes it:
 > heel at the origin, sole on `y = 0`, toe along `+Z`, sole length exactly `1`.
 
 The app then scales it to the real size in millimetres. `tools/asset-pipeline/normalize.mjs`
-produces this; `modules/shoe-stage` consumes it. If a shoe appears rotated, backwards or lying
+produces this; `ios` consumes it. If a shoe appears rotated, backwards or lying
 down, the fault is almost always at normalization time (`--flip`, `--pre-rotate-x`), not in the
 app's pose maths.
 

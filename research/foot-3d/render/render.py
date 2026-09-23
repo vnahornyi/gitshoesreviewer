@@ -24,8 +24,11 @@ from bpy_extras.object_utils import world_to_camera_view
 from mathutils import Matrix, Vector
 
 ROOT = Path(__file__).resolve().parents[1]
-SHAPES = ROOT / "data/synth/shapes"
-OUT = ROOT / "data/synth/renders"
+sys.path.insert(0, str(ROOT))  # run as a script, not with -m: the project root is not on the path
+
+from assets import ASSETS  # noqa: E402
+SHAPES = ASSETS / "synth/shapes"
+OUT = ASSETS / "synth/renders"
 WIDTH, HEIGHT = 720, 960
 SAMPLES = 24
 SHIN_TOP = 0.95

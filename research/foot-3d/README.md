@@ -15,7 +15,7 @@ uv run python -m spike.fit_close <images…>  # whole frame is one foot: fit the
 uv run python -m spike.fit_scene <images…>  # RTMPose finds each foot, the crop goes to the TOC model
 ```
 
-`vendor/`, `data/` and `results/` are git-ignored. Frames come from `research/foot-tracking/data/prepared/`.
+`vendor/`, `data/` and `results/` are git-ignored. Frames come from `research/assets/capture/prepared/`.
 
 ## Result (2026-09-19, Mac, MPS, ~170 ms per 480×640 crop)
 
@@ -30,13 +30,13 @@ The approach is right: dense correspondences give a full 3D foot pose, and the m
 
 # SynFoot V1: what the data holds
 
-[SynFoot](https://github.com/OllieBoyne/SynFoot) V1 (MIT) goes to `data/synfoot/V1/` (git-ignored): 50 000 renders, 480×640, each with an RGB image, a foot mask, a normals image and a label (8 keypoints, the Blender camera, the Foot3D foot ID). The foot scan is not included.
+[SynFoot](https://github.com/OllieBoyne/SynFoot) V1 (MIT) goes to `assets/synfoot/V1/` (git-ignored): 50 000 renders, 480×640, each with an RGB image, a foot mask, a normals image and a label (8 keypoints, the Blender camera, the Foot3D foot ID). The foot scan is not included.
 
 ```bash
 uv run python -m synfoot.check   # stats and a contact sheet, results/synfoot/sheet.jpg
 ```
 
-`synfoot/data.py` reads a sample and converts the camera to OpenCV. `synfoot/foot_pose.py` triangulates each foot's 8 keypoints from 400 views and caches them in `data/synfoot/foot_keypoints.json`. For each sample it then recovers the foot pose in the camera frame, and maps the FIND template onto the foot with a similarity transform.
+`synfoot/data.py` reads a sample and converts the camera to OpenCV. `synfoot/foot_pose.py` triangulates each foot's 8 keypoints from 400 views and caches them in `assets/synfoot/foot_keypoints.json`. For each sample it then recovers the foot pose in the camera frame, and maps the FIND template onto the foot with a similarity transform.
 
 | Finding (2026-09-22) | Consequence |
 |---|---|
@@ -59,7 +59,7 @@ The 3D pose is PnP of the 8 points on the FIND template keypoints.
 
 ```bash
 uv run python -m footnet.train --epochs 20                 # SynFoot V1 only
-uv run python -m footnet.train --renders --init data/footnet/best.pt --epochs 8   # plus our renders
+uv run python -m footnet.train --renders --init assets/checkpoints/best.pt --epochs 8   # plus our renders
 uv run python -m footnet.real                              # RTMPose crop → FootNet → PnP on real frames, results/footnet/real/
 ```
 
@@ -74,8 +74,8 @@ uv run python -m footnet.real                              # RTMPose crop → Fo
 SynFoot has no mirror views. We render our own with Blender as a Python module, in a separate Python 3.13 environment in `render/`. Nobody opens Blender.
 
 ```bash
-uv run python -m synth.export_shapes --count 300      # FIND feet → data/synth/shapes/
-cd render && uv sync && .venv/bin/python render.py --total 20000   # → data/synth/renders/, batches of 200 per process
+uv run python -m synth.export_shapes --count 300      # FIND feet → assets/synth/shapes/
+cd render && uv sync && .venv/bin/python render.py --total 20000   # → assets/synth/renders/, batches of 200 per process
 ```
 
 - **Foot shapes.** `synth/find_model.py` re-implements the FIND displacement field (MIT) without pytorch3d, from `vendor/FOCUS/data/find/model.pth`. That checkpoint holds 8 fitted Foot3D feet, and they match the SynFoot feet to about 5 mm at the keypoints. New feet are random blends of those 8 latents with some noise and a 0.88–1.12 size. The ankle cap (`templ_masked_faces.npy`) is removed so a shin can be extruded from the opening.

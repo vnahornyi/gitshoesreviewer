@@ -74,7 +74,7 @@ come from the observations.**
 
 ## The anchor and the direction
 
-Read `shoeTransform()` in [`shoePose.ts`](../../src/foot-debug/shoePose.ts). The structure is
+Read `shoeTransform()` in [`shoePose.ts`](../../src/pose/shoePose.ts). The structure is
 deliberate:
 
 - **the toes anchor the shoe** — they are what must line up in the image, and they are what FootNet

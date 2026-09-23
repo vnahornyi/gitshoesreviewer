@@ -1,6 +1,6 @@
 """Export FootNet to Core ML for the app, compile it, and check it against PyTorch.
 
-    uv run python -m footnet.export [--checkpoint data/footnet/best.pt] [--target ../../modules/foot-pose/model]
+    uv run python -m footnet.export [--checkpoint ../../assets/checkpoints/best.pt] [--target ../../modules/foot-pose/model]
 
 Core ML rather than ONNX Runtime: ONNX Runtime's Core ML execution provider cut this graph into 22 partitions and
 copied the tensors out and back at every one, which made the Neural Engine slower than the CPU (44 ms against 20).
@@ -19,6 +19,7 @@ import coremltools as ct
 import numpy as np
 import torch
 
+from assets import ASSETS
 from synfoot.data import ids
 
 from .dataset import MEAN, SIZE, STD, SynFootCrops
@@ -92,7 +93,7 @@ def compile_model(package: Path, target: Path) -> Path:
 
 def main() -> None:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--checkpoint", default=str(ROOT / "data/footnet/best.pt"))
+    parser.add_argument("--checkpoint", default=str(ASSETS / "checkpoints/best.pt"))
     parser.add_argument("--target", default=str(DEFAULT_TARGET))
     args = parser.parse_args()
 
@@ -101,7 +102,7 @@ def main() -> None:
     exported = Exported(model).eval()
 
     target = Path(args.target)
-    package = ROOT / f"data/footnet/{NAME}.mlpackage"
+    package = ASSETS / f"checkpoints/{NAME}.mlpackage"
     to_coreml(exported, ct.ComputeUnit.ALL).save(str(package))
     compiled = compile_model(package, target)
     size = sum(f.stat().st_size for f in compiled.rglob("*") if f.is_file())

@@ -1,27 +1,33 @@
 ---
 name: nitro-native-modules
-description: Changing this project's two Swift native modules (foot-pose, shoe-stage) — the Nitro codegen step, what must be rerun after which change, how models get into the app bundle, and the build traps that cost hours here. Use when editing anything under modules/, when a new field has to cross from Swift to JS, when a model file changes, or when the app builds but the change is not there.
+description: Changing this project's Swift native layer — the Nitro codegen step, what must be rerun after which change, how models get into the app bundle, and the build traps that cost hours here. Use when editing anything under ios/ or src/native/specs/, when a new field has to cross from Swift to JS, when a model file changes, or when the app builds but the change is not there.
 ---
 
-# The native modules
+# The native layer
 
-Two [Nitro](https://nitro.margelo.com) modules, both iOS-only Swift, both consumed from the frame
-processor worklet:
+One [Nitro](https://nitro.margelo.com) module, `ShoeTryOn`, iOS-only Swift, five HybridObjects, all
+consumed from the frame processor worklet:
 
-| Module | What it does |
+| Object | What it does |
 |---|---|
-| `modules/foot-pose` | RTMPose (ONNX Runtime) finds feet; FootNet (Core ML) refines each one in its own crop |
-| `modules/shoe-stage` | RealityKit draws the shoes; person matte, scene light, device gravity |
+| `FootPoseDetector` | RTMPose (ONNX Runtime) finds feet; FootNet (Core ML) refines each in its own crop |
+| `ShoeView` | RealityKit draws the shoes |
+| `PersonMatte`, `SceneLight`, `DeviceGravity` | The matte, the frame's light, and gravity |
 
-Each has a `README.md` that documents its API contract. Update it in the same change — those
-READMEs are the contract, not decoration.
+The specs are in `src/native/specs/`, the Swift in `ios/`, and [`ios/README.md`](../../ios/README.md)
+documents every contract. Update it in the same change — that README is the contract, not
+decoration.
+
+They were two pods until the repository became an installable library; one pod means a consumer runs
+`pod install` once. If you are reading an old commit, `modules/foot-pose` and `modules/shoe-stage`
+are where these files used to live.
 
 ## The one step that is always forgotten
 
-After editing a `*.nitro.ts` spec, **run codegen in that module's directory**:
+After editing a `*.nitro.ts` spec, **run codegen at the repository root**:
 
 ```bash
-cd modules/foot-pose && npm run codegen
+npm run codegen
 ```
 
 Without it the generated Swift protocol keeps the old shape. The symptom is not a clean error: the
@@ -35,17 +41,17 @@ it; never edit it by hand.
 
 | Change | Then |
 |---|---|
-| `*.nitro.ts` spec | `npm run codegen` in the module, then rebuild |
+| `*.nitro.ts` spec | `npm run codegen` at the root, then rebuild |
 | Swift implementation only | rebuild |
-| podspec, new file added to a pod, new model resource | `cd ios && bundle exec pod install`, then rebuild |
+| podspec, new Swift file, new model resource | `cd example/ios && bundle exec pod install`, then rebuild |
 | model file replaced in `modules/*/model/` | `pod install` (resources are copied at install time), then rebuild |
 
 ## Models are not in git
 
-`modules/foot-pose/model/` is git-ignored except for what `.gitignore` there allows. The RTMPose
+`model/` is git-ignored except for what `.gitignore` there allows. The RTMPose
 ONNX files come from `tools/model-convert`, FootNet's `.mlmodelc` from
 `research/foot-3d/footnet.export`. A fresh clone has no models and the detector's `status` stays an
-error until they are copied in — see `modules/foot-pose/README.md`.
+error until they are copied in — see `ios/README.md`.
 
 The podspec ships `model/*.onnx` and `model/*.mlmodelc`. A model added with a new extension needs
 the podspec's `s.resources` updated, or it is simply absent at runtime.

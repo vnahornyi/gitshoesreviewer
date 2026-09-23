@@ -1,6 +1,6 @@
 """Run FootNet on real frames: RTMPose finds each foot, the crop goes to FootNet, PnP puts the FIND template on it.
 
-    uv run python -m footnet.real [--checkpoint data/footnet/best.pt] [--per-video 2] [images…]
+    uv run python -m footnet.real [--checkpoint ../../assets/checkpoints/best.pt] [--per-video 2] [images…]
 """
 
 import argparse
@@ -11,6 +11,8 @@ import numpy as np
 import torch
 from rtmlib import RTMPose
 
+from assets import ASSETS
+
 from spike.fit_scene import FEET, MIN_SCORE, RTMPOSE_M
 from spike.pose import TEMPLATE, intrinsics
 from synfoot.foot_pose import FIND_KEYPOINTS
@@ -19,7 +21,7 @@ from .dataset import MEAN, SIZE, STD, square_affine
 from .model import FootNet, decode_points
 
 ROOT = Path(__file__).resolve().parents[1]
-FRAMES = ROOT.parent / "foot-tracking/data/prepared"
+FRAMES = ASSETS / "capture/prepared"
 OUT = ROOT / "results/footnet/real"
 CROP_CONTEXT = 1.8
 # About the 5th percentile of peak scores on held-out SynFoot after training: below it a point is a guess.
@@ -73,7 +75,7 @@ def draw(canvas, points, scores, mask, right_probability, pose, camera, color):
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--checkpoint", default=str(ROOT / "data/footnet/best.pt"))
+    parser.add_argument("--checkpoint", default=str(ASSETS / "checkpoints/best.pt"))
     parser.add_argument("--per-video", type=int, default=2)
     parser.add_argument("images", nargs="*")
     args = parser.parse_args()

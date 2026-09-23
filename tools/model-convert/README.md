@@ -10,13 +10,13 @@ The spike chose RTMW whole-body x-l (`research/foot-tracking/README.md`). The ap
 
 ```bash
 uv sync
-cp ~/.cache/rtmlib/hub/checkpoints/rtmw-dw-x-l_simcc-cocktail14_270e-256x192_20231122.onnx work/rtmw-x-l.onnx
-uv run python to_fp16.py work/rtmw-x-l.onnx work/rtmw-x-l-fp16.onnx
-uv run python verify.py work/rtmw-x-l.onnx work/rtmw-x-l-fp16.onnx --provider coreml <images…>
+cp ~/.cache/rtmlib/hub/checkpoints/rtmw-dw-x-l_simcc-cocktail14_270e-256x192_20231122.onnx ../../assets/onnx/rtmw-x-l.onnx
+uv run python to_fp16.py ../../assets/onnx/rtmw-x-l.onnx ../../assets/onnx/rtmw-x-l-fp16.onnx
+uv run python verify.py ../../assets/onnx/rtmw-x-l.onnx ../../assets/onnx/rtmw-x-l-fp16.onnx --provider coreml <images…>
 
-cp ~/.cache/rtmlib/hub/checkpoints/rtmpose-m_simcc-body7_pt-body7-halpe26_700e-256x192-4d3e73dd_20230605.onnx work/rtmpose-m.onnx
-uv run python to_fp16.py work/rtmpose-m.onnx work/rtmpose-m-fp16.onnx
-uv run python verify.py work/rtmpose-m.onnx work/rtmpose-m-fp16.onnx --layout halpe26 --provider coreml <images…>
+cp ~/.cache/rtmlib/hub/checkpoints/rtmpose-m_simcc-body7_pt-body7-halpe26_700e-256x192-4d3e73dd_20230605.onnx ../../assets/onnx/rtmpose-m.onnx
+uv run python to_fp16.py ../../assets/onnx/rtmpose-m.onnx ../../assets/onnx/rtmpose-m-fp16.onnx
+uv run python verify.py ../../assets/onnx/rtmpose-m.onnx ../../assets/onnx/rtmpose-m-fp16.onnx --layout halpe26 --provider coreml <images…>
 ```
 
 The model file comes from `rtmlib`'s cache after the spike has run once. `to_fp16.py` keeps the float32 inputs and outputs, so the app feeds float32 and reads float32. It also fixes every shape to batch 1, because the RTMPose-m export leaves the batch and joint dimensions open and Core ML compiles a static graph. `verify.py` compares the foot keypoints (COCO-WholeBody 17, 19, 20, 22) of the candidate against the fp32 model on CPU, and reports the latency of both.

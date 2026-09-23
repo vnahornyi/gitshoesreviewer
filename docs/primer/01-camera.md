@@ -39,7 +39,7 @@ What survives is the *direction*. Given a pixel, you can compute the ray it came
 direction = ( (x − cx) / f,  (y − cy) / f,  1 )
 ```
 
-This is `ray()` in [`src/foot-debug/shoePose.ts`](../../src/foot-debug/shoePose.ts). It says: the
+This is `ray()` in [`src/pose/shoePose.ts`](../../src/pose/shoePose.ts). It says: the
 point is *somewhere* along this line. Which is a lot — it is two of the three unknowns.
 
 ### Where our intrinsics come from
@@ -112,11 +112,11 @@ Say "assumed" out loud whenever it matters. It is in
 
 ## Try it
 
-1. Open [`shoePose.ts`](../../src/foot-debug/shoePose.ts) and follow one image point through
+1. Open [`shoePose.ts`](../../src/pose/shoePose.ts) and follow one image point through
    `ray()` → `onPlane()` → a 3D point. Everything above is those twenty lines.
 2. Work out, on paper, what happens to `onPlane()` when `direction · up` approaches zero. That is
    the grazing guard, and you can now see why it exists.
-3. In [`shoePose.test.ts`](../../src/foot-debug/shoePose.test.ts), change the assumed camera height
+3. In [`shoePose.test.ts`](../../src/pose/shoePose.test.ts), change the assumed camera height
    and see which way the shoe's size moves. Predict the direction before running it.
 
 ## Further reading

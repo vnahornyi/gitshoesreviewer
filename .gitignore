@@ -1,78 +1,19 @@
-# OSX
-#
+# This is the library's ignore file. The example app has its own — Xcode, Gradle, Pods and the
+# Ruby bundle all live under example/ and are ignored there.
+
 .DS_Store
-
-# Xcode
-#
-build/
-*.pbxuser
-!default.pbxuser
-*.mode1v3
-!default.mode1v3
-*.mode2v3
-!default.mode2v3
-*.perspectivev3
-!default.perspectivev3
-xcuserdata
-*.xccheckout
-*.moved-aside
-DerivedData
-*.hmap
-*.ipa
-*.xcuserstate
-**/.xcode.env.local
-
-# Android/IntelliJ
-#
-build/
-.idea
-.gradle
-local.properties
-*.iml
-*.hprof
-.cxx/
-*.keystore
-!debug.keystore
-.kotlin/
-
-# node.js
-#
 node_modules/
 npm-debug.log
-yarn-error.log
-
-# fastlane
-#
-# It is recommended to not store the screenshots in the git repo. Instead, use fastlane to re-generate the
-# screenshots whenever they are needed.
-# For more information about the recommended setup visit:
-# https://docs.fastlane.tools/best-practices/source-control/
-
-**/fastlane/report.xml
-**/fastlane/Preview.html
-**/fastlane/screenshots
-**/fastlane/test_output
-
-# Bundle artifact
-*.jsbundle
-
-# Ruby / CocoaPods
-**/Pods/
-/vendor/bundle/
-
-# Temporary files created by Metro to check the health of the file watcher
-.metro-health-check*
-
-# testing
 /coverage
 
-# Yarn
-.yarn/*
-!.yarn/patches
-!.yarn/plugins
-!.yarn/releases
-!.yarn/sdks
-!.yarn/versions
+# The keypoint models: 150 MB, rebuilt by tools/model-convert and research/foot-3d. `ios/README.md`
+# says how to put them here.
+model/
+
+# The big local data: datasets, checkpoints, captured footage. Everything under assets/ except its
+# README, which documents what each folder is and how to restore it. See assets/README.md.
+assets/*
+!assets/README.md
 
 # Per-agent local setup: temporary plans, and the symlinks `npm run skills` creates so Claude Code
 # finds the real, agent-neutral skills in skills/. Nothing in here is shared.

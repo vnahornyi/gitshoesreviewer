@@ -15,6 +15,8 @@ one says how well.
 - **Offline asset pipeline** from a product photo to a normalized USDZ.
 - **Synthetic data**: a Blender renderer producing mirror / top / third-person views with socks and
   trousers, 20 000 frames rendered.
+- **The repository is an installable library.** One npm package, one pod, one codegen; the app it
+  used to be is now `example/`, and it consumes the library from the outside like anyone else.
 
 ## Does not work
 
@@ -26,6 +28,10 @@ one says how well.
   down at your own feet physically hides it. Mitigated by falling back to RTMPose's ankle; two
   attempts at guessing it geometrically were measured and rejected.
 - **A landscape frame** (1472×828) draws points far from the feet. Not diagnosed.
+- **The models do not travel with the package.** They are 150 MB and not in git, so
+  `npm install github:…` gives a library whose detector cannot load. A consumer has to copy three
+  files into `node_modules/react-native-shoe-tryon/model/` by hand. git-lfs, a release asset, or a
+  download step would each fix it; none has been chosen.
 - **No Android**, no product UI, one debug screen.
 
 ## In progress
@@ -43,7 +49,9 @@ one says how well.
 3. **FootNet decoder at 64×64** instead of 256×256 — less urgent since the Core ML switch.
 4. **The floor-plane template fit** (25 mm, 4.5° direction) to replace the toe/ankle direction
    logic and make the hidden heel a non-issue.
-5. Android.
+5. **Ship the models with the package** — see above; it is what stands between "installable" and
+   "usable by someone else".
+6. Android.
 
 ## Things that are assumptions, not facts
 

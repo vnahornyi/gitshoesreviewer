@@ -54,7 +54,7 @@ The tracker is both cheaper *and* more accurate than the detector at the same jo
 ### The rules that keep it stable
 
 A tracker feeding itself is a feedback loop, and feedback loops need damping. Ours, in
-[`HybridFootPoseDetector.swift`](../../modules/foot-pose/ios/HybridFootPoseDetector.swift), each
+[`HybridFootPoseDetector.swift`](../../ios/HybridFootPoseDetector.swift), each
 learned from a failure:
 
 **The crop may change size by at most 20 % per frame.** Building the next crop only from the points
@@ -105,7 +105,7 @@ value  = value + α · (measurement − value)
 
 Standing still, speed ≈ 0, the cutoff is low, and jitter is smoothed away. Moving fast, the cutoff
 is high, α approaches 1, and the filter barely filters — so there is no lag when it would be felt.
-It is forty lines ([`oneEuro.ts`](../../src/foot-debug/oneEuro.ts)) and has two meaningful knobs:
+It is forty lines ([`oneEuro.ts`](../../src/track/oneEuro.ts)) and has two meaningful knobs:
 
 - `minCutoff` — lower means steadier when still, at the cost of lag;
 - `β` — higher means more responsive when moving, at the cost of jitter during motion.
@@ -120,7 +120,7 @@ Our two models run at different rates, and the slow one produces points the fast
 When the detector has not run this frame, its ankle is missing — but the shoe still needs a back
 point.
 
-[`footTracker.ts`](../../src/foot-debug/footTracker.ts) stores FootNet's points **relative to the
+[`footTracker.ts`](../../src/track/footTracker.ts) stores FootNet's points **relative to the
 one landmark both models produce**, RTMPose's big toe, and moves them by however far that toe
 moved. For up to 600 ms this keeps a plausible full set; after that the body model's own points
 take over.

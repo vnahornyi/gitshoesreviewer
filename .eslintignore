@@ -4,3 +4,6 @@ vendor/
 **/vendor/
 **/.venv/
 **/nitrogen/generated/
+
+# The example app lints itself, with its own config: `npm --prefix example run lint`.
+example/

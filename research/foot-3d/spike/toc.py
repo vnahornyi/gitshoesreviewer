@@ -6,12 +6,14 @@ import cv2
 import numpy as np
 import torch
 
+from assets import ASSETS
+
 ROOT = Path(__file__).resolve().parents[1]
 sys.path[:0] = [str(ROOT / "vendor/FOCUS"), str(ROOT / "vendor/FOCUS/FOCUS/toc_prediction/DSINE")]
 
 from FOCUS.toc_prediction.model import FootPredictorModel  # noqa: E402
 
-MODEL = ROOT / "data/toc_model/densedepth_toc_predictor.pth"
+MODEL = ASSETS / "find-toc/densedepth_toc_predictor.pth"
 INPUT_W, INPUT_H = 480, 640
 MASK_THRESHOLD = 0.5
 

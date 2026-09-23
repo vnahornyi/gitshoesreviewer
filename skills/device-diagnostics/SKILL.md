@@ -10,7 +10,7 @@ settled by a simulator run or an offline probe.
 
 ## The two instruments
 
-**The per-second log** (`logSample` in `src/foot-debug/useFootPose.ts`), one line a second to Metro:
+**The per-second log** (`logSample` in `src/useFootPose.ts`), one line a second to Metro:
 
 ```
 [foot] 28.4 fps, frame 1280x720, feet 31 ms, search skipped

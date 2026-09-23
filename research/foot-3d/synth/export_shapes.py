@@ -1,13 +1,14 @@
-"""Sample FIND feet for the Blender renderer (its own Python 3.13 env, no torch): data/synth/shapes/."""
+"""Sample FIND feet for the Blender renderer (its own Python 3.13 env, no torch): assets/synth/shapes/."""
 
 import argparse
-from pathlib import Path
 
 import numpy as np
 
+from assets import ASSETS
+
 from .find_model import FIND, KEYPOINT_VERTICES, Find
 
-OUT = Path(__file__).resolve().parents[1] / "data/synth/shapes"
+OUT = ASSETS / "synth/shapes"
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()

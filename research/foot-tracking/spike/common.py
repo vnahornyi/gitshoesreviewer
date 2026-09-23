@@ -1,3 +1,4 @@
+import os
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -7,12 +8,15 @@ KEYPOINTS = ("big_toe", "small_toe", "heel", "ankle")
 VIEWS = ("mirror-full", "mirror-lower", "third", "top", "close")
 
 ROOT = Path(__file__).resolve().parent.parent
-DATA = ROOT / "data"
+# The footage and the downloaded models are not in git; they live under assets/ at the repository
+# root, one folder per dataset. See assets/README.md, and SHOE_ASSETS to move them off this disk.
+ASSETS = Path(os.environ.get("SHOE_ASSETS") or ROOT.parents[1] / "assets")
+DATA = ASSETS / "capture"
 RAW = DATA / "raw"
 PREPARED = DATA / "prepared"
 MASKS = DATA / "masks"
 LABELS = DATA / "labels.json"
-MODELS = ROOT / "models"
+MODELS = ASSETS / "mediapipe"
 RESULTS = ROOT / "results"
 
 Point = tuple[float, float]

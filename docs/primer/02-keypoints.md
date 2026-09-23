@@ -142,7 +142,7 @@ SimCC head, silently, producing points up to 940 px off. See chapter 4.
 ## Try it
 
 1. Read `decode_points()` in `model.py` and `decode` in
-   [`FootNetRunner.swift`](../../modules/foot-pose/ios/FootNetRunner.swift) side by side. Convince
+   [`FootNetRunner.swift`](../../ios/FootNetRunner.swift) side by side. Convince
    yourself they compute the same thing. Then consider what happens if someone changes one.
 2. In `dataset.py`, change `SIGMA` from 3 to 1 and reason about it: sharper target, more precision
    if learned — but far fewer "on" pixels, so a weaker gradient. Which way would you bet?

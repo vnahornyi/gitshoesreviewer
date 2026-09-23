@@ -37,11 +37,23 @@ the developer's decision** — it is not synced to the `ai-god` repository, unli
 Training and rendering here run for hours. Start them in the background, and check them by reading
 the output file rather than re-running anything:
 
-- render → `research/foot-3d/results/render.out`, frames in `research/foot-3d/data/synth/renders/`
+- render → `research/foot-3d/results/render.out`, frames in `assets/synth/renders/`
 - training → `research/foot-3d/results/footnet/train-v3.out` and `results/footnet/log.csv`
 
 `nohup` returns immediately; the wrapper "completing" does not mean the job finished. Check the
 process before reporting anything about it.
+
+## Two npm projects
+
+The repository root is the library; `example/` is a separate npm project that installs it as
+`file:..`. Run a command in the one it belongs to:
+
+| Command | Where |
+|---|---|
+| `npm test`, `npx tsc --noEmit`, `npm run lint`, `npm run codegen` | the root |
+| `npm start`, `npm run ios`, `pod install`, `bundle install` | `example/` |
+
+An `npm install` at the root does not install the example's dependencies, and vice versa.
 
 ## Diagnostics loop
 

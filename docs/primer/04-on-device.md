@@ -119,7 +119,7 @@ both crashes this project has had were here.
 
 1. In `FootNetRunner.load`, change `computeUnits` to `.cpuOnly` and measure. You now know, for your
    own device, what the ANE is worth.
-2. Open `modules/foot-pose/model/footnet.mlmodelc/model.mil` — the compiled model is readable. Find
+2. Open `model/footnet.mlmodelc/model.mil` — the compiled model is readable. Find
    where the normalisation was folded in.
 3. Read the export's parity check. Ask what you would do if it printed 4 px instead of 0.001.
 

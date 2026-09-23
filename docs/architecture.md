@@ -91,7 +91,7 @@ work in the mirror scenario.
 
 ## Rendering
 
-`modules/shoe-stage` — RealityKit `ARView` in non-AR mode over the camera preview, with the shoe
+`ios` — RealityKit `ARView` in non-AR mode over the camera preview, with the shoe
 transform handed in as a column-major 4×4 in camera space. The Apple Vision person matte cuts the
 view out where the real leg crosses the shoe collar, so the leg comes out of the shoe. Scene light
 matching takes the frame's exposure and part of its colour cast. Its README is the contract.

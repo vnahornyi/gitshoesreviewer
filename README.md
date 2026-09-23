@@ -1,6 +1,6 @@
-# Shoe virtual try-on (TRYON-1)
+# react-native-shoe-tryon
 
-A React Native prototype that puts a 3D sneaker on your real foot, live in the camera, entirely
+A React Native library that puts a 3D sneaker on a real foot, live in the camera, entirely
 on-device. iOS first; Android is a later stage.
 
 Two scenarios are equally in scope, and they are harder than they look for opposite reasons:
@@ -12,51 +12,83 @@ Two scenarios are equally in scope, and they are harder than they look for oppos
 User data never leaves the phone. Shoe assets are prepared offline on a developer Mac from catalog
 photos and shipped as static files.
 
-> **Status: prototype.** One debug screen, no product UI, no Android. Numbers below are measured on
-> an iPhone 11 unless said otherwise. See [docs/state.md](docs/state.md) for what works today and
-> what does not.
+> **Status: prototype.** One debug screen in `example/`, no product UI, no Android, and the models
+> are not in the package yet (see below). Numbers here are measured on an iPhone 11 unless said
+> otherwise. [docs/state.md](docs/state.md) has what works today and what does not.
 
-## Running it
+## Installing it
 
 ```bash
-npm install
-npm run skills       # links skills/ into .claude/skills/ for Claude Code; harmless otherwise
+npm install github:vnahornyi/aishoesreviewer
+cd ios && pod install
 ```
 
-Models are **not in git** — build or copy them first, or the detector never leaves its error state:
+Peer dependencies: `react-native-nitro-modules`, `react-native-vision-camera` (v5),
+`react-native-worklets`.
+
+> **The keypoint models are not in the package.** They are 150 MB and not in git, so `model/` is
+> empty after an install and the detector stays in its error state. Copy the three files into
+> `node_modules/react-native-shoe-tryon/model/` **before** `pod install`;
+> [ios/README.md](ios/README.md) says where they come from. Shipping them properly — git-lfs, a
+> release asset, or a download step — is open work.
+
+```tsx
+import { ShoeLayer, useFootPose } from 'react-native-shoe-tryon';
+
+const { feet, frameSize, onFrame } = useFootPose({ legMatte: true, sceneLight: true });
+// … feed onFrame from a VisionCamera frame processor, then:
+<ShoeLayer feet={feet} frame={frameSize} view={layout} />
+```
+
+[src/index.ts](src/index.ts) is the whole public surface, and [src/README.md](src/README.md)
+explains the pieces behind it.
+
+## Running the example
+
+The example is a full React Native app with one debug screen, and it is how this is developed.
 
 ```bash
-cp tools/model-convert/work/rtmpose-m-fp16.onnx tools/model-convert/work/rtmw-x-l-fp16.onnx modules/foot-pose/model/
+npm install                     # the library
+npm run skills                  # links skills/ into .claude/skills/ for Claude Code; harmless otherwise
+cp assets/onnx/rtmpose-m-fp16.onnx assets/onnx/rtmw-x-l-fp16.onnx model/
 cd research/foot-3d && uv run python -m footnet.export && cd ../..
-cp -R research/foot-3d/data/footnet/footnet.mlmodelc modules/foot-pose/model/
-```
 
-Then:
-
-```bash
+cd example
+npm install
 bundle install
 cd ios && bundle exec pod install && cd ..
 npm start
-npm run ios          # a real device: the simulator has no usable camera
+npm run ios                     # a real device: the simulator has no usable camera
 ```
 
-`npm test` (Jest), `npx tsc --noEmit` and `npm run lint` all have to be green before anything is
-staged.
+At the root, `npm test` (Jest), `npx tsc --noEmit` and `npm run lint` all have to be green before
+anything is staged; the example has its own `typecheck` and `lint`.
 
 ## How it is laid out
 
 ```
-App.tsx                  one screen, the debug screen
-src/foot-debug/          the app-side pipeline: tracking, smoothing, 2D → 3D shoe pose
-modules/foot-pose/       Swift: RTMPose (ONNX Runtime) + FootNet (Core ML)
-modules/shoe-stage/      Swift: RealityKit shoe rendering, person matte, scene light, gravity
+src/                     the library: tracking, smoothing, 2D → 3D shoe pose, the Nitro specs
+ios/                     the library's Swift: one pod, five Nitro HybridObjects
+shoes/                   the shipped .usdz shoe models
+model/                   the keypoint models — not in git
+example/                 a React Native app with one debug screen
+assets/                  every large local file, one folder per dataset — not in git
 tools/model-convert/     RTMPose ONNX → fp16, verified against fp32
 tools/asset-pipeline/    product photo → 3D shoe → USDZ, offline on the Mac
 research/foot-tracking/  which body model to use, and why
 research/foot-3d/        FootNet: our own foot model, its datasets and its Blender renderer
-docs/                    architecture, decisions, measurements, troubleshooting
+docs/                    architecture, decisions, measurements, troubleshooting, and a primer
 skills/                  what to know before touching a given area, agent-neutral
 ```
+
+Four layers with four different jobs, and the split is deliberate:
+
+- **the library** (`src/`, `ios/`, `shoes/`) is what an app installs;
+- **`example/`** is the only consumer, and proves the library works from the outside;
+- **`tools/`** builds the artifacts the library ships — models and shoes — and runs on a Mac, never
+  on a phone;
+- **`research/`** answers questions with measurements and produces `tools/`' inputs. Its licences
+  are mixed and some of it cannot ship.
 
 Every directory above with real complexity has its own `README.md` that documents its contract.
 Those are the source of truth for that layer; this file only points at them.
@@ -88,6 +120,7 @@ and [docs/decisions.md](docs/decisions.md).
 | [docs/measurements.md](docs/measurements.md) | Every number in this repo, with its date and method |
 | [docs/troubleshooting.md](docs/troubleshooting.md) | Failures that have actually happened here |
 | [docs/state.md](docs/state.md) | What works, what does not, what is next |
+| [assets/README.md](assets/README.md) | What each dataset is, what it cost, how to restore it |
 | [AGENTS.md](AGENTS.md) | Conventions and rules, for an agent or a new developer |
 | [skills/](skills/README.md) | What to know before touching a given area |
 
@@ -99,4 +132,4 @@ call.
 
 The prototype depends on research code with mixed licences, and some of it is **not usable in a
 shipped product**. `research/foot-3d/README.md` names which. Shoe asset licences are in
-`modules/shoe-stage/shoes/LICENSES.md`.
+[shoes/LICENSES.md](shoes/LICENSES.md).

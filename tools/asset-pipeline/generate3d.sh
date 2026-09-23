@@ -11,7 +11,7 @@ SHOE_ID="$1"
 INPUT="$(cd "$(dirname "$2")" && pwd)/$(basename "$2")"
 shift 2
 
-OUT_DIR="$(pwd)/work/$SHOE_ID"
+OUT_DIR="$(cd ../../assets && pwd)/shoe-builds/$SHOE_ID"
 mkdir -p "$OUT_DIR"
 
 cd vendor/trellis-mac

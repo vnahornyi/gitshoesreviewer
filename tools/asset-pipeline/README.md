@@ -4,10 +4,14 @@ Offline, on the developer's Mac: a product photo becomes a normalized GLB that t
 User data never passes through here; only catalog photos do.
 
 ```
-input/<id>/*.png ──cutout.swift──▶ work/<id>/*-cutout-N.png ──generate3d.sh──▶ work/<id>/raw.glb ──normalize.mjs──▶ work/<id>/model.glb ──glb2usdz.py──▶ modules/shoe-stage/shoes/<id>-{right,left}.usdz
+assets/shoe-photos/<id>/*.png
+  ──cutout.swift──▶ assets/shoe-builds/<id>/*-cutout-N.png
+  ──generate3d.sh──▶ assets/shoe-builds/<id>/raw.glb
+  ──normalize.mjs──▶ assets/shoe-builds/<id>/model.glb
+  ──glb2usdz.py──▶ shoes/<id>-{right,left}.usdz
 ```
 
-`input/`, `work/` and `vendor/` are git-ignored. Product photos are retailer images, so they stay local.
+Inputs and intermediates live under `assets/` (`shoe-photos/`, `shoe-builds/`), which is git-ignored; `vendor/` is too. Product photos are retailer images, so they stay local and are never committed.
 
 ## Requirements
 
@@ -29,11 +33,11 @@ This pins [trellis-mac](https://github.com/shivampkumar/trellis-mac) to a fixed 
 ## Per shoe
 
 ```bash
-swift cutout.swift input/<id>/01.png work/<id> --instance all
-./generate3d.sh <id> work/<id>/01-cutout-0.png --pipeline-type 1024
-node normalize.mjs work/<id>/raw.glb work/<id>/model.glb
-uv run glb2usdz.py work/<id>/model.glb ../../modules/shoe-stage/shoes/<id>-right.usdz
-uv run glb2usdz.py work/<id>/model.glb ../../modules/shoe-stage/shoes/<id>-left.usdz --mirror
+swift cutout.swift ../../assets/shoe-photos/<id>/01.png ../../assets/shoe-builds/<id> --instance all
+./generate3d.sh <id> ../../assets/shoe-builds/<id>/01-cutout-0.png --pipeline-type 1024
+node normalize.mjs ../../assets/shoe-builds/<id>/raw.glb ../../assets/shoe-builds/<id>/model.glb
+uv run glb2usdz.py ../../assets/shoe-builds/<id>/model.glb ../../shoes/<id>-right.usdz
+uv run glb2usdz.py ../../assets/shoe-builds/<id>/model.glb ../../shoes/<id>-left.usdz --mirror
 ```
 
 Swap `-right` and `-left` if the source model is a left shoe. On a normalized shoe, the arch cutout of the sole and the big-toe bulge are on the medial side: on `+x` for a right shoe.

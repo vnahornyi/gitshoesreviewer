@@ -118,7 +118,7 @@ a copy there is nothing to compare against and nothing to fall back to.
 
 ## Try it
 
-1. Open a few frames in `research/foot-3d/data/synth/renders/` next to a photo of your own feet.
+1. Open a few frames in `assets/synth/renders/` next to a photo of your own feet.
    List the differences you can see. That list is the domain gap, concretely.
 2. Read the SynFoot findings table in `research/foot-3d/README.md`. Notice that the conclusion
    "V1 cannot cover the mirror view" came from *measuring the camera distribution*, not from

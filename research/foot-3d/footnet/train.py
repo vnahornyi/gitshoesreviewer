@@ -8,15 +8,16 @@ import torch
 import torch.nn.functional as F
 from torch.utils.data import ConcatDataset, DataLoader
 
+from assets import ASSETS
 from synfoot.data import Sample, ids
 
 from .dataset import RenderCrops, SynFootCrops
 from .model import FootNet, decode_points
 
 ROOT = Path(__file__).resolve().parents[1]
-CHECKPOINTS = ROOT / "data/footnet"
+CHECKPOINTS = ASSETS / "checkpoints"
 LOG = ROOT / "results/footnet/log.csv"
-RENDERS = ROOT / "data/synth/renders"
+RENDERS = ASSETS / "synth/renders"
 RENDER_VALIDATION_EVERY = 20
 VALIDATION_FOOT = "0033-A"
 VALIDATION_SAMPLES = 2000

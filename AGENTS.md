@@ -8,10 +8,11 @@ file is the shared part.
 | Area | Read |
 |---|---|
 | Anything at all | [`docs/state.md`](docs/state.md) — what works and what does not, today |
+| How the repository is split | [`README.md`](README.md) — library, example, tools, research |
 | New to computer vision | [`docs/primer/`](docs/primer/README.md) — the theory behind all of it, in order |
 | Placing or scaling a shoe, assets | skill [`shoe-try-on`](skills/shoe-try-on/SKILL.md) |
 | The foot model, its data, its export | skill [`footnet`](skills/footnet/SKILL.md) |
-| `modules/` — the Swift side | skill [`nitro-native-modules`](skills/nitro-native-modules/SKILL.md) |
+| `ios/` — the Swift side | skill [`nitro-native-modules`](skills/nitro-native-modules/SKILL.md) |
 | Anything about on-device behaviour | skill [`device-diagnostics`](skills/device-diagnostics/SKILL.md) |
 | The pipeline as a whole | [`docs/architecture.md`](docs/architecture.md) |
 | "Why is it like this?" | [`docs/decisions.md`](docs/decisions.md) |
@@ -31,12 +32,11 @@ next. No amend, rebase, `reset --hard`, force push, or `--no-verify`. On rejecti
 ## Before staging anything
 
 ```bash
-npx tsc --noEmit
-npm run lint
-npm test
+npx tsc --noEmit && npm run lint && npm test          # the library
+npm --prefix example run typecheck && npm --prefix example run lint
 ```
 
-All three green. A simulator build compiles the native side; only a real device tells you whether
+All of them green. A simulator build compiles the native side; only a real device tells you whether
 it works.
 
 ## Conventions
@@ -45,10 +45,18 @@ it works.
   documentation in English.
 - **Comments explain why**, and are written for someone who will read the code in six months. Match
   the density and idiom of the file you are in.
-- **No barrel files** that only re-export. Import the file that declares the symbol.
+- **No barrel files** that only re-export. Import the file that declares the symbol. The one
+  exception is [`src/index.ts`](src/index.ts): it is the published API surface, so what it names is
+  the promise, and nothing else may re-export.
 - **Prototype, no ceremony**: no estimates, no epics, no approval gates. Just the work — the git
   rules above still apply.
-- **Models are not in git.** A fresh clone needs them copied in; see the root README.
+- **Models and datasets are not in git.** Models go in `model/`, everything large goes under
+  `assets/`, one folder per dataset — [`assets/README.md`](assets/README.md) says what each is and
+  how to restore it. Code reaches them through a resolved root, never a hard-coded path, and
+  `SHOE_ASSETS` moves the lot to another disk.
+- **The repository is the library.** `src/`, `ios/` and `shoes/` are what an app installs;
+  `example/` is a consumer like any other and must not be imported from. A change that only works
+  because the app happens to sit in the same tree is a bug.
 - `.claude/` is git-ignored: it holds one agent's local plumbing (plan files, skill symlinks), never
   anything shared. Plan files are temporary and are deleted when their task is done.
 
