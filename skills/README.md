@@ -35,8 +35,15 @@ particular agent spawns subagents. Anything runtime-specific goes in that runtim
 | Claude Code | [`../CLAUDE.md`](../CLAUDE.md) |
 | Codex, and anything else | [`../AGENTS.md`](../AGENTS.md) |
 
-`.claude/skills/` holds relative symlinks into this directory, because that is where Claude Code
-looks. The files themselves live here, once.
+The files live here, once, and nowhere else. Claude Code only discovers skills in `.claude/skills/`
+and has no setting for another path, so a one-line script links them into place:
+
+```bash
+npm run skills
+```
+
+`.claude/` is git-ignored, so that plumbing is local to whoever set it up and never lands in the
+repository. Rerun the script after adding a skill.
 
 ## Writing one
 

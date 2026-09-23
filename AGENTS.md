@@ -48,7 +48,8 @@ it works.
 - **Prototype, no ceremony**: no estimates, no epics, no approval gates. Just the work — the git
   rules above still apply.
 - **Models are not in git.** A fresh clone needs them copied in; see the root README.
-- `.claude/plans/` is git-ignored. Plan files are temporary and are deleted when their task is done.
+- `.claude/` is git-ignored: it holds one agent's local plumbing (plan files, skill symlinks), never
+  anything shared. Plan files are temporary and are deleted when their task is done.
 
 ## Verify the ask
 
@@ -75,4 +76,5 @@ called noise twice without being checked — that is the failure mode to guard a
 | Codex and others | this file |
 
 Skills in [`skills/`](skills/README.md) are agent-neutral by design: they say what and when, never
-which tool to call.
+which tool to call. If a runtime needs them somewhere specific, it links them there — Claude Code
+does that with `npm run skills` — rather than a second copy being kept.

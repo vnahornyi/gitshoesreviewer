@@ -74,5 +74,6 @@ yarn-error.log
 !.yarn/sdks
 !.yarn/versions
 
-# AI workflow plans (temporary)
-.claude/plans/
+# Per-agent local setup: temporary plans, and the symlinks `npm run skills` creates so Claude Code
+# finds the real, agent-neutral skills in skills/. Nothing in here is shared.
+.claude/

@@ -5,13 +5,21 @@ what is specific to running as Claude Code here.
 
 ## Skills
 
-The skills live in [`skills/`](skills/README.md) as plain, agent-neutral files.
-`.claude/skills/<name>` are relative symlinks into that directory, so they are discovered
-automatically and can be invoked by name: `shoe-try-on`, `footnet`, `nitro-native-modules`,
-`device-diagnostics`, `realtime-vision-pipeline`, `apple-neural-engine`.
+The skills live in [`skills/`](skills/README.md) as plain, agent-neutral files. Claude Code only
+discovers skills in `.claude/skills/`, and there is no setting that points it elsewhere, so run
+this once after cloning:
 
-Adding a skill: create `skills/<name>/SKILL.md`, then
-`ln -s ../../skills/<name> .claude/skills/<name>`. Never put the real file under `.claude/`.
+```bash
+npm run skills
+```
+
+It symlinks each skill into `.claude/skills/`, which is git-ignored — the real files stay in
+`skills/` and the per-agent plumbing stays local. They are then invokable by name: `shoe-try-on`,
+`footnet`, `nitro-native-modules`, `device-diagnostics`, `realtime-vision-pipeline`,
+`apple-neural-engine`.
+
+Adding a skill: create `skills/<name>/SKILL.md` and rerun `npm run skills`. Never put the real file
+under `.claude/` — it would be invisible to every other agent and excluded from git.
 
 ## Global rules still apply
 

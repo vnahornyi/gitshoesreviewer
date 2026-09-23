@@ -10,7 +10,8 @@
     "test": "jest",
     "pod-install": "cd ios && bundle exec pod install && cd ..",
     "pod-update": "cd ios && bundle exec pod update && cd ..",
-    "clean": "react-native clean"
+    "clean": "react-native clean",
+    "skills": "sh skills/link.sh"
   },
   "dependencies": {
     "@react-native/new-app-screen": "0.87.1",

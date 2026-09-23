@@ -20,6 +20,7 @@ photos and shipped as static files.
 
 ```bash
 npm install
+npm run skills       # links skills/ into .claude/skills/ for Claude Code; harmless otherwise
 ```
 
 Models are **not in git** — build or copy them first, or the detector never leaves its error state:
