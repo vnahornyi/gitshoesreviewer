@@ -82,6 +82,7 @@ and [docs/decisions.md](docs/decisions.md).
 
 | Document | What it answers |
 |---|---|
+| [docs/primer/](docs/primer/README.md) | **Start here to learn the subject** — the theory, from the camera up, with references |
 | [docs/architecture.md](docs/architecture.md) | What happens to a frame, in order, with the time budget |
 | [docs/decisions.md](docs/decisions.md) | Why each model, runtime and approach — and what was rejected |
 | [docs/measurements.md](docs/measurements.md) | Every number in this repo, with its date and method |

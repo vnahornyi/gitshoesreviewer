@@ -8,6 +8,7 @@ file is the shared part.
 | Area | Read |
 |---|---|
 | Anything at all | [`docs/state.md`](docs/state.md) — what works and what does not, today |
+| New to computer vision | [`docs/primer/`](docs/primer/README.md) — the theory behind all of it, in order |
 | Placing or scaling a shoe, assets | skill [`shoe-try-on`](skills/shoe-try-on/SKILL.md) |
 | The foot model, its data, its export | skill [`footnet`](skills/footnet/SKILL.md) |
 | `modules/` — the Swift side | skill [`nitro-native-modules`](skills/nitro-native-modules/SKILL.md) |
