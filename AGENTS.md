@@ -16,6 +16,7 @@ file is the shared part.
 | Anything about on-device behaviour | skill [`device-diagnostics`](skills/device-diagnostics/SKILL.md) |
 | The pipeline as a whole | [`docs/architecture.md`](docs/architecture.md) |
 | "Why is it like this?" | [`docs/decisions.md`](docs/decisions.md) |
+| "Why is the AR not good enough?" | [`docs/audit.md`](docs/audit.md) — measured, with the disproven theories |
 | Any number | [`docs/measurements.md`](docs/measurements.md) |
 | Something broke | [`docs/troubleshooting.md`](docs/troubleshooting.md) |
 

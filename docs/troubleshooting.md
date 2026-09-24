@@ -47,6 +47,30 @@ explicitly.
 **A runtime flag has no effect inside the frame processor** — a VisionCamera frame processor keeps
 the closure it started with. Flags must live on the native object.
 
+## The app will not render at all
+
+**`Cannot read property 'useMemo' of null`**, thrown by the first component that uses a hook, with a
+stack showing the library's source resolving `react` from the **repository root's** `node_modules`
+while the renderer comes from `example/node_modules`. That is two copies of React in one bundle: the
+second one's hook dispatcher is null.
+
+It happens because the library is installed as `file:..`, so its source is bundled from outside the
+app and Metro resolves its imports upward from the repository root — where the library keeps its own
+`react` and `react-native` as devDependencies for its tests and typecheck.
+
+The fix is in [`example/metro.config.js`](../example/metro.config.js): every package in the
+library's `peerDependencies` is mapped to the app's copy through `extraNodeModules`, and the root's
+copies are put in `blockList` so the wrong one cannot be reached at all. Adding a peer dependency to
+the library is enough to extend it; the config reads the list from `package.json`.
+
+Check it without a device — the bundler uses the same resolver as the app:
+
+```bash
+cd example && npx react-native bundle --entry-file index.js --platform ios --dev true \
+  --bundle-output /tmp/test.jsbundle --assets-dest /tmp/assets
+grep -c '"\.\./node_modules/react/' /tmp/test.jsbundle   # must be 0
+```
+
 ## The build fails
 
 **`pod install` fails with an unhelpful message** — it hides the real error unless the locale is

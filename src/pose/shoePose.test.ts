@@ -1,5 +1,6 @@
 import {
   gravityInBackCamera,
+  impliedShoeLengthM,
   intrinsicsFor,
   shoeTransform,
   verticalFovDegrees,
@@ -238,5 +239,74 @@ describe('intrinsicsFor', () => {
 describe('gravityInBackCamera', () => {
   it('points down the image when the phone is upright', () => {
     expect(gravityInBackCamera([0, -1, 0])).toEqual([0, 1, -0]);
+  });
+});
+
+describe('impliedShoeLengthM', () => {
+  it('measures the shoe it was built from, wherever it starts', () => {
+    const s = frontalScene(20);
+    [0.18, 0.22, 0.29, 0.34, 0.45].forEach(guess => {
+      const measured = impliedShoeLengthM(
+        s.foot,
+        frame,
+        k,
+        s.gravity,
+        guess,
+        FRONTAL_SCENE_HEIGHT,
+      );
+      expect(measured).toBeCloseTo(SHOE, 3);
+    });
+  });
+
+  // This is what makes one tape measure enough: read the number, divide by the real foot, and the assumed camera
+  // height is wrong by that factor.
+  it('is proportional to the assumed camera height', () => {
+    const s = frontalScene(20);
+    const at = (height: number) =>
+      impliedShoeLengthM(s.foot, frame, k, s.gravity, SHOE, height)!;
+    [0.8, 1.2, 1.4].forEach(factor => {
+      expect(at(FRONTAL_SCENE_HEIGHT * factor) / at(FRONTAL_SCENE_HEIGHT)).toBeCloseTo(factor, 2);
+    });
+  });
+
+  it('has nothing to measure without a back point', () => {
+    const s = frontalScene(20);
+    const toesOnly = { toe: s.foot.toe, smallToe: s.foot.smallToe };
+    expect(
+      impliedShoeLengthM(
+        toesOnly as typeof s.foot,
+        frame,
+        k,
+        s.gravity,
+        SHOE,
+        FRONTAL_SCENE_HEIGHT,
+      ),
+    ).toBeNull();
+  });
+});
+
+// The reason ShoeLayer draws the measured length rather than a constant: a wrong camera height scales the whole
+// reconstruction, and scaling the shoe with it leaves a similarity about the camera, which projects to the same
+// pixels. So the rendered frame is right for anyone without calibrating anything.
+describe('drawing the measured length', () => {
+  it('makes the pose independent of the assumed camera height, up to scale', () => {
+    const s = frontalScene(20);
+    const poseAt = (height: number) => {
+      const measured = impliedShoeLengthM(
+        s.foot,
+        frame,
+        k,
+        s.gravity,
+        SHOE,
+        height,
+      )!;
+      return shoeTransform(s.foot, frame, k, s.gravity, measured, height)!;
+    };
+    const low = poseAt(1.1);
+    const high = poseAt(1.4);
+    const ratio = 1.4 / 1.1;
+    [0, 1, 2, 4, 5, 6, 8, 9, 10, 12, 13, 14].forEach(i => {
+      expect(high[i]).toBeCloseTo(low[i] * ratio, 3);
+    });
   });
 });

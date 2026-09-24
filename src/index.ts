@@ -37,6 +37,7 @@ export {
 } from './track/footTracker';
 export {
   gravityInBackCamera,
+  impliedShoeLengthM,
   intrinsicsFor,
   shoeTransform,
   verticalFovDegrees,

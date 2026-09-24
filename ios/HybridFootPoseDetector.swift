@@ -69,6 +69,13 @@ private enum Feet {
   static let sizeStep = 1.2
   // How long a crop keeps being looked at after the last frame the model was sure in it.
   static let lostAfter: CFTimeInterval = 0.3
+  // A walking foot is centimetres further on by the time the next frame arrives, so a crop placed where it was is a
+  // crop it is walking out of. The model then grows unsure in it, the foot is dropped, and the whole-frame search
+  // takes a quarter of a second to pick it up — which is what makes the shoe blink while walking. These lead the
+  // crop by the speed of the last frames instead. The blend tames a noisy one-frame estimate, and the cap keeps a
+  // bad one from flinging the crop off the foot entirely.
+  static let motionBlend = 0.5
+  static let maxLead = 0.5
   // How often the body model may search the whole frame for a foot FootNet is not following. Searching costs more
   // than a frame's whole budget, and a foot that is out of frame would otherwise have it searching on every one.
   static let searchInterval: CFTimeInterval = 0.25
@@ -86,6 +93,8 @@ private final class Runner {
   // which seed a crop for a foot that has none.
   private var tracked: [Crop?] = [nil, nil]
   private var seenAt: [CFTimeInterval] = [0, 0]
+  // How fast each foot's crop is moving across the frame, in pixels per second, to lead it on the next frame.
+  private var motion: [(x: Double, y: Double)] = [(0, 0), (0, 0)]
   // How bright each foot's crop was, to tell a crop of a foot from one of nothing.
   private var brightness: [Double] = [0, 0]
   private var searched: [Double] = []
@@ -152,8 +161,17 @@ private final class Runner {
     var refined = [[Double]](repeating: empty, count: Feet.joints.count)
     var sureCount = [Int](repeating: 0, count: Feet.joints.count)
     for foot in Feet.joints {
-      guard let box = tracked[foot.side] ?? seed(for: foot, width: width, height: height),
-            let found = try? footNet.run(pixelBuffer, crop: box), found.count == FootNet.joints * 3 else {
+      let following = tracked[foot.side]
+      if following == nil { motion[foot.side] = (0, 0) }
+      guard let observed = following ?? seed(for: foot, width: width, height: height) else {
+        tracked[foot.side] = nil
+        brightness[foot.side] = 0
+        continue
+      }
+      // Where the foot will be, not where it was. A crop seeded by the whole-frame search has no history to lead it
+      // with, so it is used as it is.
+      let box = following == nil ? observed : lead(observed, side: foot.side, at: now)
+      guard let found = try? footNet.run(pixelBuffer, crop: box), found.count == FootNet.joints * 3 else {
         tracked[foot.side] = nil
         brightness[foot.side] = 0
         continue
@@ -161,30 +179,44 @@ private final class Runner {
       brightness[foot.side] = footNet.brightness
       // Every point the model found is passed on with its score, however low; whoever places the shoe decides what to
       // trust. Only whether to keep following this crop is decided here.
-      var normalized = [Double]()
-      normalized.reserveCapacity(found.count)
-      for point in stride(from: 0, to: found.count, by: 3) {
-        normalized.append(found[point] / width)
-        normalized.append(found[point + 1] / height)
-        normalized.append(found[point + 2])
-      }
+      let normalized = FootNetCoordinates.normalized(found, width: width, height: height)
       refined[foot.side] = normalized
 
       let sure = stride(from: 0, to: found.count, by: 3)
         .filter { found[$0 + 2] >= Feet.trackedScore }
         .map { (x: found[$0], y: found[$0 + 1]) }
       guard sure.count >= Feet.trackedPoints, let next = FootNetRunner.box(around: sure) else {
-        tracked[foot.side] = now - seenAt[foot.side] <= Feet.lostAfter ? box : nil
+        // The crop that is kept is the one the foot was last seen in, never the led one: leading a led crop again
+        // on every frame would walk it off the foot on its own.
+        tracked[foot.side] = now - seenAt[foot.side] <= Feet.lostAfter ? observed : nil
         continue
       }
       // Follow the foot's new position, but hold the crop's size steady.
       let side = min(max(next.side, box.side / Feet.sizeStep), box.side * Feet.sizeStep)
+      let elapsed = now - seenAt[foot.side]
+      if following != nil, elapsed > 0, elapsed <= Feet.lostAfter {
+        let moved = (x: (next.x + next.side / 2 - observed.x - observed.side / 2) / elapsed,
+                     y: (next.y + next.side / 2 - observed.y - observed.side / 2) / elapsed)
+        motion[foot.side] = (x: motion[foot.side].x + Feet.motionBlend * (moved.x - motion[foot.side].x),
+                             y: motion[foot.side].y + Feet.motionBlend * (moved.y - motion[foot.side].y))
+      }
       tracked[foot.side] = Crop(x: next.x + (next.side - side) / 2, y: next.y + (next.side - side) / 2, side: side)
       seenAt[foot.side] = now
       sureCount[foot.side] = sure.count
     }
     dropTheDouble(&refined, sureCount: sureCount, empty: empty)
     return refined.flatMap { $0 }
+  }
+
+  // Where to look for a foot that is moving: its last crop, carried on by the speed of the frames before it. The
+  // offset is capped at half the crop, so a velocity read off one bad frame shifts the crop without losing the foot.
+  private func lead(_ box: Crop, side: Int, at now: CFTimeInterval) -> Crop {
+    let elapsed = now - seenAt[side]
+    guard elapsed > 0, elapsed <= Feet.lostAfter else { return box }
+    let limit = box.side * Feet.maxLead
+    let dx = min(max(motion[side].x * elapsed, -limit), limit)
+    let dy = min(max(motion[side].y * elapsed, -limit), limit)
+    return Crop(x: box.x + dx, y: box.y + dy, side: box.side)
   }
 
   // Two crops can drift onto the same foot, and then both of them follow it for good. The less certain one is let go

@@ -120,6 +120,7 @@ and [docs/decisions.md](docs/decisions.md).
 | [docs/measurements.md](docs/measurements.md) | Every number in this repo, with its date and method |
 | [docs/troubleshooting.md](docs/troubleshooting.md) | Failures that have actually happened here |
 | [docs/state.md](docs/state.md) | What works, what does not, what is next |
+| [docs/audit.md](docs/audit.md) | Where the AR quality actually breaks, measured end to end |
 | [assets/README.md](assets/README.md) | What each dataset is, what it cost, how to restore it |
 | [AGENTS.md](AGENTS.md) | Conventions and rules, for an agent or a new developer |
 | [skills/](skills/README.md) | What to know before touching a given area |

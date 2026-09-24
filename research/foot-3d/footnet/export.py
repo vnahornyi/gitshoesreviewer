@@ -26,13 +26,14 @@ from .dataset import MEAN, SIZE, STD, SynFootCrops
 from .model import FootNet, decode_points
 
 ROOT = Path(__file__).resolve().parents[1]
-DEFAULT_TARGET = ROOT.parents[1] / "modules/foot-pose/model"
+DEFAULT_TARGET = ROOT.parents[1] / "model"
+DEFAULT_PACKAGE = ASSETS / "checkpoints/footnet.mlpackage"
 NAME = "footnet"
 SAMPLES = 16
 
 
 class Exported(torch.nn.Module):
-    """Pixels 0…1 in, keypoint probabilities out. Core ML scales the pixel buffer by 1/255 itself; the ImageNet
+    """Pixels 0…1 in, keypoint logits out. Core ML scales the pixel buffer by 1/255 itself; the ImageNet
     normalisation is part of the graph so the app has no per-pixel work of its own left."""
 
     def __init__(self, model: FootNet):
@@ -43,7 +44,7 @@ class Exported(torch.nn.Module):
 
     def forward(self, image: torch.Tensor) -> torch.Tensor:
         _, heatmaps, _ = self.model((image - self.mean) / self.std)
-        return torch.sigmoid(heatmaps)
+        return heatmaps
 
 
 def to_coreml(exported: Exported, units: ct.ComputeUnit) -> ct.models.MLModel:
@@ -95,6 +96,7 @@ def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--checkpoint", default=str(ASSETS / "checkpoints/best.pt"))
     parser.add_argument("--target", default=str(DEFAULT_TARGET))
+    parser.add_argument("--package", default=str(DEFAULT_PACKAGE))
     args = parser.parse_args()
 
     model = FootNet(pretrained=False).eval()
@@ -102,7 +104,7 @@ def main() -> None:
     exported = Exported(model).eval()
 
     target = Path(args.target)
-    package = ASSETS / f"checkpoints/{NAME}.mlpackage"
+    package = Path(args.package)
     to_coreml(exported, ct.ComputeUnit.ALL).save(str(package))
     compiled = compile_model(package, target)
     size = sum(f.stat().st_size for f in compiled.rglob("*") if f.is_file())

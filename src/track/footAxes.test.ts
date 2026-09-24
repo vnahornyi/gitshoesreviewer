@@ -98,4 +98,20 @@ describe('frameToView', () => {
       frameToView({ x: 0, y: 1 }, frame, { width: 600, height: 640 }),
     ).toEqual({ x: 120, y: 640 });
   });
+
+  it('round-trips an off-centre point from a landscape frame into a portrait view', () => {
+    const landscape = { width: 1472, height: 828 };
+    const view = { width: 393, height: 852 };
+    const point = { x: 0.75, y: 0.25 };
+    const mapped = frameToView(point, landscape, view);
+
+    expect(mapped.x).toBeCloseTo(294.75, 8);
+    expect(mapped.y).toBeCloseTo(370.734375, 8);
+
+    const scale = Math.min(view.width / landscape.width, view.height / landscape.height);
+    const offsetX = (view.width - landscape.width * scale) / 2;
+    const offsetY = (view.height - landscape.height * scale) / 2;
+    expect((mapped.x - offsetX) / (landscape.width * scale)).toBeCloseTo(point.x, 10);
+    expect((mapped.y - offsetY) / (landscape.height * scale)).toBeCloseTo(point.y, 10);
+  });
 });

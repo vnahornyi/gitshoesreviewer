@@ -38,13 +38,66 @@ at 256×256.
 |---|---|---|---|---|---|
 | 2026-09-22 | 20 epochs, SynFoot only | 2.1 px | 11.7 px | 113 px | 0.73 |
 | 2026-09-22 | + 8 epochs with 7 254 render frames | 2.3 px | 3.3 px | 16 px | 0.93 |
-| 2026-09-23 | + 8 epochs with 20 000 render frames | *in progress* | | | |
+| 2026-09-23 | + 8 epochs with 20 000 render frames | 2.330 px | 2.938 px | 11.824 px | 0.942 |
+
+The 20 000-frame run started at 17:33 EEST and completed by 20:42 EEST; all eight epochs are in
+`research/foot-3d/results/footnet/log.csv`. `best.pt` is selected by the lowest SynFoot median
+(2.304 px at epoch 7), while epoch 8 `last.pt` has the best render p90 (11.824 px). These are
+synthetic validation metrics only. The real-frame comparison is recorded below; it does not replace
+on-device validation.
+
+### Real-label checkpoint comparison
+
+2026-09-23, PyTorch on Mac CPU (`torch.backends.mps.is_available()` was false). Errors are per point,
+normalized by the labelled toe-to-heel distance. The oracle crop uses the labelled points; the seed
+crop uses an offline RTMPose-M full-frame pass and the iOS detector's joint threshold/context as a
+one-frame proxy. It does not reproduce the native tracker's crop history or run on the phone.
+
+The comparison uses 156 feet with both labels after excluding 19 incomplete label records and the
+whole `IMG_3244` / `IMG_3246` clips, which the project handoff flags for child appearances in some
+frames. RTMPose produced a seed crop for 153 of 156 feet (98.1 %).
+
+| Checkpoint | Oracle median / p90 | RTMPose seed median / p90 | Oracle score ≥0.3 | Seed score ≥0.3 |
+|---|---|---|---|---|
+| `v2-renders-7k.pt` | 0.1575 / 0.3821 | 0.1947 / 1.1420 | 53.8 % | 50.7 % |
+| 20k `best.pt` | 0.1539 / 0.3837 | 0.2020 / 1.1629 | 57.4 % | 50.3 % |
+| 20k `last.pt` | 0.1545 / 0.3904 | 0.1938 / 1.1631 | 57.4 % | 52.0 % |
+
+The 20k checkpoints slightly improve the oracle median and score coverage, but do not improve p90
+on either crop protocol. This does not support exporting a new model to the phone yet. Per-view
+rows and the full command are in `research/foot-3d/footnet/audit_checkpoints.py` and the ignored
+output `research/foot-3d/results/footnet/audit-checkpoints.csv`.
 
 On the developer's own frames after the 2026-09-22 run, the FIND template fits to **0.3–2 px in the
 mirror** and **1–3 px from above**, bare or in socks. **Shoes and the side view fail** — no dataset
 has footwear.
 
 On the device the per-point scores are **bimodal**: 0.6–0.9 or 0.0–0.15, little between.
+
+## Shoe placement on the device
+
+From a 28 s screen recording on 2026-09-23, mirror and top-down, in socks, with the debugger
+attached. The numbers come from the per-second `[shoe]` log (`ShoeLayer.tsx`), which reports the
+shoe length the image implies (`impliedShoeLengthM`) and the spread of the shoe's origin.
+
+| Quantity | Value | How |
+|---|---|---|
+| Implied shoe length, locked on | **290 mm**, range 281–306 | 9 windows with ≥10 frames and spread ≤5 mm |
+| Implied shoe length, bad frames | 385–2174 mm | every window where the model was unsure |
+| Jitter of the shoe's origin | x ~15, y ~6, z ~15 mm | standard deviation over one second, standing still |
+| Developer's foot | 276 mm; 280 mm insole | tape measure |
+
+A sneaker with a 280 mm insole is about 290–300 mm outside, so the measured 290 mm is consistent
+with the assumed 1.3 m camera height. It does **not** confirm it: the landmark fractions in
+`shoePose.ts` are estimates too, and one reading cannot separate two unknowns. Measuring the phone's
+height with a tape and re-reading would.
+
+The plausibility window in `ShoeLayer.tsx` (180–330 mm) comes from this table: it separates every
+good window from every bad one in this recording, with a wide margin on both sides.
+
+Quality tracked the on-screen `N/16` exactly: 8/16 put both shoes correctly on the feet, 2/16 drew
+nothing, 0/16 drew a shoe at the wrong size and angle. The last case is what the plausibility
+window now rejects.
 
 ## Export parity
 
@@ -92,12 +145,69 @@ Render composition, sampled: `mirror` ~52 %, `top` ~29 %, `third` ~19 %; socks ~
 | With renders mixed in | 0.78 s/step — JPEG and PNG decode per item |
 | Blender render | 3.3–3.5 s/frame (6–9 s when training shares the GPU) |
 
+## Decoder and coordinate checks (2026-09-24)
+
+| Check | Result |
+|---|---|
+| Old Swift decoder vs PyTorch, 156 labelled crops / 1,248 joints | 0.095 px median, 0.232 px p90, 3.149 px max coordinate delta; score p90 0.000184 |
+| Updated Swift vs PyTorch on identical float16-rounded logits | 0.000009 px median, 0.000020 px p90, 0.000045 px max; score max 0.0000001 |
+| Updated Swift vs full-precision PyTorch, including float16 peak ties | 0.000307 px p90; rare argmax switches up to 4.769 px on `last.pt` |
+| Core ML CPU-only package vs PyTorch, 16 SynFoot crops, original `v2-renders-7k.pt` | 0.010 px median, 0.985 px max |
+| Swift crop → frame pixel → normalized coordinate probe (1472×828) | Pass |
+| JS frame → portrait view round trip (1472×828 to 393×852) | Pass |
+
+The exporter now returns logits, the native decoder turns the peak logit into its confidence score,
+and the locally compiled `model/footnet.mlmodelc` was regenerated with the original 7k weights.
+These are CPU/Mac checks; the new bundle has not been exercised in an iOS build or on a phone.
+
+The 156 complete toe/heel labels are spread across six eligible source clips (16–34 feet per clip).
+Five view labels are represented; `top` appears in two clips. The pilot used source-level holdouts,
+but the small number of clips is not enough to claim generalization.
+
+## Real-image ablation and partial-label pilot (2026-09-24)
+
+All errors below are measured on the same labelled toe/heel coordinates with the original
+`v2-renders-7k.pt` weights. Oracle crops remove RTMPose crop placement; seed crops are a single-frame
+CPU proxy and omit three top-view feet with no RTMPose crop.
+
+| Transform | Oracle median / p90 | RTMPose seed median / p90 |
+|---|---:|---:|
+| Baseline | 0.1575 / 0.3821 | 0.1947 / 1.1420 |
+| Downsample at 0.2866× then upsample | 0.1499 / 0.3780 | 0.1895 / 1.0846 |
+| Reduce saturation to measured 18.7 median | 0.1628 / 0.3924 | 0.1899 / 1.1851 |
+| Gaussian blur to Laplacian std ≈9.9 | 0.1565 / 0.3795 | 0.1952 / 1.1540 |
+| Non-local denoise to Laplacian std ≈9.9 | 0.1588 / 0.4035 | 0.2018 / 1.1928 |
+
+The downsample ratio comes from the measured source pixels per foot: 243 px synthetic vs 848 px real.
+It overshoots the sharpness target (resulting median Laplacian std 2.60), so the small gain does
+not isolate source resolution from loss of detail. Denoise strength was calibrated on 16 evenly
+spaced crops, then measured across the full sets. None of the transforms is a deployment fix.
+
+The partial-label pilot started from the 7k checkpoint, trained on 111 seed crops from four clips,
+validated on 16 crops from `IMG_3248`, and tested on 26 crops from `IMG_3250`. It used 8 epochs at
+the earlier render fine-tune learning rate of 3e-4 and mixed one fully labelled render batch into
+each real batch. Metrics count only landmark labels inside each crop.
+
+| Split | Model | Visible points | Median | p90 | Score ≥0.3 |
+|---|---|---:|---:|---:|---:|
+| Validation | Baseline | 31 | 0.1660 | 0.3504 | 54.8 % |
+| Validation | Fine-tuned epoch 7 | 31 | 0.1705 | 0.2970 | 45.2 % |
+| Test | Baseline | 48 | 0.1681 | 1.3899 | 43.8 % |
+| Test | Fine-tuned epoch 7 | 48 | 0.1380 | 1.5241 | 39.6 % |
+
+The median improvement on one held-out clip did not carry to its tail or confidence recall. Keep
+the original checkpoint until there are more source clips and footwear labels.
+
 ## Unmeasured, and known to be
 
 These are assumptions in the code. Any estimate depending on them inherits their uncertainty.
 
-- **Camera height 1.3 m** (`ShoeLayer.tsx`) — assumed, a phone at chest height.
-- **Shoe length 0.29 m**, about EU 43 — placeholder until catalog sole lengths land.
+- **Camera height 1.3 m** (`ShoeLayer.tsx`) — assumed, a phone at chest height. It no longer
+  affects what is drawn, because the shoe is drawn at the length the same construction measures and
+  the two scale together; it still has to be right to report a real size in millimetres.
+- **Shoe length** is no longer assumed: it is measured per foot and smoothed. `SHOE_LENGTH_M = 0.29`
+  is only where the measurement starts. A catalog sole length would replace the measurement for a
+  real try-on, where seeing a size that does not fit is the point.
 - **Landmark heights on the shoe** — ankle ≈ 28 % of length up and a quarter along, little toe
   ≈ 80 % along (`shoePose.ts`) — anatomical estimates, not measurements.
 - Scene-light and grain constants in `shoe-stage` — "estimates to tune on device", per its README.

@@ -56,12 +56,18 @@ whole network stays on the Neural Engine at 1.9 ms. The same is worth doing for 
   `inferenceMs` is 0 — read the feet from `refined` there. A crop that drifts onto the foot the other
   crop already follows is let go, and RTMPose picks that foot up again.
 - `refine` turns on FootNet (`research/foot-3d`, `footnet.mlmodelc`), our own foot model. For each
-  foot RTMPose found, the crop around its points (1.45× the box, at least 24 px) is scaled into a
+  foot RTMPose found, the crop around its points (1.8× the box, chosen by measurement on 94 real feet) is scaled into a
   256×256 pixel buffer and handed to Core ML, which scales and normalises the pixels itself; its 8
-  keypoint heatmaps come back as float16 and are decoded here: the peak of each, refined by a
-  softmax-weighted mean over a 5×5 window. `refined` then holds the left foot's 8 points and the
-  right foot's, each `[x, y, score]` normalized to the frame, in `FOOT_NET_JOINTS` order, and
-  `refineMs` how long both feet took. A foot that was not found, or not refined, is all zeros.
+  keypoint heatmaps come back as float16 logits and are decoded here: the peak of each, refined by a
+  softmax-weighted mean over a 5×5 window, with the peak passed through sigmoid for its score.
+  `refined` then holds the left foot's 8 points and the right foot's, each `[x, y, score]` normalized
+  to the frame, in `FOOT_NET_JOINTS` order, and `refineMs` how long both feet took. A foot that was
+  not found, or not refined, is all zeros.
+- The shared Swift decoder and frame normalization live in `FootNetDecoder.swift`. The research
+  parity probe calls this same decoder on model logits quantized like the Core ML output and
+  compares its points and scores against the PyTorch decoder on the same labelled crops:
+  `cd research/foot-3d && uv run python -m footnet.check_swift_decoder`. This is a Mac CPU check;
+  it does not measure Core ML execution or device latency.
 - A foot FootNet did not refine comes back as zeros, so whoever reads the points has to cope without
   them — [`../src/track/footTracker.ts`](../src/track/footTracker.ts) carries the last ones over, moved by how
   far RTMPose's big toe moved.

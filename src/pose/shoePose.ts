@@ -90,18 +90,28 @@ function onPlane(
   return scale(direction, depth);
 }
 
+type FloorSpan = {
+  toe: Vec3;
+  front: ShoePoint;
+  forward: Vec3;
+  up: Vec3;
+  // How far apart the two landmarks are on the floor, and what fraction of a shoe's length that is.
+  metres: number;
+  fraction: number;
+};
+
 // Every point of a standing foot sits at a known height above the floor, so with gravity and the camera height each
 // image point becomes a 3D point on its own horizontal plane. That holds from any view, the frontal mirror one
 // included, where solving depth from the heel-to-toe length is ill-conditioned. The toes anchor the shoe (they are
 // what must line up in the image) and the ankle, or else the heel, gives its direction.
-export function shoeTransform(
+function floorSpan(
   foot: FootPoints,
   frame: Size,
   intrinsics: Intrinsics,
   gravity: Vec3,
   shoeLengthM: number,
   cameraHeightM: number,
-): number[] | null {
+): FloorSpan | null {
   const up = normalize(scale(gravity, -1));
   const place = (point: Point, on: ShoePoint) =>
     onPlane(
@@ -133,10 +143,81 @@ export function shoeTransform(
   }
   const along = sub(toe, behind);
   const flat = sub(along, scale(up, dot(along, up)));
-  if (length(flat) < MIN_SPAN_M) {
+  const metres = length(flat);
+  if (metres < MIN_SPAN_M) {
     return null;
   }
-  return placement(toe, front, normalize(flat), up, shoeLengthM);
+  return {
+    toe,
+    front,
+    forward: normalize(flat),
+    up,
+    metres,
+    fraction: front.forward - back.on.forward,
+  };
+}
+
+export function shoeTransform(
+  foot: FootPoints,
+  frame: Size,
+  intrinsics: Intrinsics,
+  gravity: Vec3,
+  shoeLengthM: number,
+  cameraHeightM: number,
+): number[] | null {
+  const span = floorSpan(
+    foot,
+    frame,
+    intrinsics,
+    gravity,
+    shoeLengthM,
+    cameraHeightM,
+  );
+  if (!span) {
+    return null;
+  }
+  return placement(span.toe, span.front, span.forward, span.up, shoeLengthM);
+}
+
+// How long the shoe would have to be for the two landmarks to land where the image says they are. The floor
+// construction gives their distance in real metres, and the fraction of a shoe's length between them is known, so
+// this measures a foot rather than assuming one — the only check we have on `shoeLengthM` and `cameraHeightM`, which
+// are both guesses. It grows with the camera height guess, so reading it against a tape measure calibrates that one.
+// The two landmarks sit on planes whose separation scales with the length being solved for, which is a strong enough
+// feedback (each pass closes about 40 % of the gap) that a fixed number of passes would silently return a half-solved
+// answer from a distant start. Iterate to the tolerance instead.
+const LENGTH_TOLERANCE_M = 0.0001;
+const MAX_PASSES = 24;
+
+export function impliedShoeLengthM(
+  foot: FootPoints,
+  frame: Size,
+  intrinsics: Intrinsics,
+  gravity: Vec3,
+  shoeLengthM: number,
+  cameraHeightM: number,
+): number | null {
+  let estimate = shoeLengthM;
+  for (let pass = 0; pass < MAX_PASSES; pass++) {
+    const span = floorSpan(
+      foot,
+      frame,
+      intrinsics,
+      gravity,
+      estimate,
+      cameraHeightM,
+    );
+    if (!span) {
+      return null;
+    }
+    const next = span.metres / span.fraction;
+    const settled = Math.abs(next - estimate) < LENGTH_TOLERANCE_M;
+    estimate = next;
+    if (settled) {
+      return estimate;
+    }
+  }
+  return null;
 }
 
 // The shoe's model matrix from one known point on it, its forward direction on the floor and up.

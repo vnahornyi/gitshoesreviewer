@@ -10,21 +10,12 @@ import Foundation
 // whole network on the Neural Engine, 16× faster on the same weights.
 enum FootNet {
   static let resource = "footnet"
-  static let size = 256
-  static let joints = 8
+  static let size = FootNetDecoder.size
+  static let joints = FootNetDecoder.joints
   // The crop is this much wider than the box around the foot's points. Training saw 1.15 to 1.7 and validated at 1.3,
   // but on 94 real feet the wider crop is measurably better: 3.9 of 8 sure points against 3.0 at 1.3, and a fifth of
   // the feet with nothing at all instead of a third.
   static let context = 1.8
-  // Peaks are refined over this radius, as `decode_points` does in training.
-  static let refineRadius = 2
-}
-
-// The crop's placement in the frame, to map the points back.
-struct Crop {
-  let x: Double
-  let y: Double
-  let side: Double
 }
 
 final class FootNetRunner {
@@ -80,7 +71,7 @@ final class FootNetRunner {
       throw FootPoseError.notReady("FootNet returned no heatmaps")
     }
     try read(array)
-    return heatmaps.withUnsafeBufferPointer { decode($0.baseAddress!, crop: box) }
+    return heatmaps.withUnsafeBufferPointer { FootNetDecoder.decode($0.baseAddress!, crop: box) }
   }
 
   // Every 16th pixel is enough for an average, and it costs microseconds.
@@ -178,34 +169,5 @@ final class FootNetRunner {
       throw FootPoseError.unsupportedFrame("vImage scale failed (\(scaled))")
     }
     return crop
-  }
-
-  // Peak of each heatmap, refined by a softmax-weighted mean over its neighbourhood, then mapped back to the frame.
-  private func decode(_ maps: UnsafePointer<Float>, crop box: Crop) -> [Double] {
-    let plane = FootNet.size * FootNet.size
-    return (0..<FootNet.joints).flatMap { joint -> [Double] in
-      let map = maps + joint * plane
-      var peak: Float = 0
-      var index: vDSP_Length = 0
-      vDSP_maxvi(map, 1, &peak, &index, vDSP_Length(plane))
-      let peakX = Int(index) % FootNet.size
-      let peakY = Int(index) / FootNet.size
-
-      var weight = 0.0
-      var x = 0.0
-      var y = 0.0
-      for dy in -FootNet.refineRadius...FootNet.refineRadius {
-        for dx in -FootNet.refineRadius...FootNet.refineRadius {
-          let sampleX = min(max(peakX + dx, 0), FootNet.size - 1)
-          let sampleY = min(max(peakY + dy, 0), FootNet.size - 1)
-          let value = exp(Double(map[sampleY * FootNet.size + sampleX] - peak))
-          weight += value
-          x += value * Double(sampleX)
-          y += value * Double(sampleY)
-        }
-      }
-      let scale = box.side / Double(FootNet.size)
-      return [box.x + x / weight * scale, box.y + y / weight * scale, Double(peak)]
-    }
   }
 }
