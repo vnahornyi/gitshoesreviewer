@@ -86,7 +86,8 @@ The test median improved but p90 worsened and fewer points cleared the existing 
 The single test clip is small, and its tail error is already above one foot length. Do not promote
 this checkpoint. The pilot shows the current labels can drive partial-label training, but a larger,
 more varied held-out set is needed before choosing a real fine-tune over annotation. The run log is
-under ignored `results/footnet/real-finetune-156/metrics.csv`.
+under ignored `assets/checkpoints/real-finetune-156/metrics.csv`; its checkpoints are kept there
+as a diagnostic experiment and are not promoted for app export.
 
 ## 1. FootNet has not learned anything wrong. It has learned the wrong world
 

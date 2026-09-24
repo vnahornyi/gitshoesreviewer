@@ -12,7 +12,6 @@ import argparse
 import csv
 import sys
 import time
-from pathlib import Path
 
 import cv2
 import numpy as np
@@ -35,11 +34,10 @@ from footnet.train import (
 )
 from rtmlib import RTMPose
 
-ROOT = Path(__file__).resolve().parents[1]
 INITIAL_CHECKPOINT = ASSETS / "checkpoints/v2-renders-7k.pt"
 VALIDATION_CLIP = "IMG_3248"
 TEST_CLIP = "IMG_3250"
-OUTPUT = ROOT / "results/footnet/real-finetune-156"
+OUTPUT = ASSETS / "checkpoints/real-finetune-156"
 
 
 class PartialRealCrops(Dataset):
