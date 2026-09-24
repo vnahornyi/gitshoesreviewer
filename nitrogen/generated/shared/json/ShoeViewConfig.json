@@ -1,0 +1,14 @@
+{
+  "uiViewClassName": "ShoeView",
+  "supportsRawText": false,
+  "bubblingEventTypes": {},
+  "directEventTypes": {},
+  "validAttributes": {
+    "model": true,
+    "verticalFovDegrees": true,
+    "shoes": true,
+    "legMatte": true,
+    "matchCamera": true,
+    "hybridRef": true
+  }
+}

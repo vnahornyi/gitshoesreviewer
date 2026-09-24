@@ -1,0 +1,44 @@
+{
+  "$schema": "https://nitro.margelo.com/nitro.schema.json",
+  "cxxNamespace": ["shoetryon"],
+  "ios": {
+    "iosModuleName": "ShoeTryOn"
+  },
+  "android": {
+    "androidNamespace": ["shoetryon"],
+    "androidCxxLibName": "ShoeTryOn"
+  },
+  "autolinking": {
+    "FootPoseDetector": {
+      "ios": {
+        "language": "swift",
+        "implementationClassName": "HybridFootPoseDetector"
+      }
+    },
+    "ShoeView": {
+      "ios": {
+        "language": "swift",
+        "implementationClassName": "HybridShoeView"
+      }
+    },
+    "DeviceGravity": {
+      "ios": {
+        "language": "swift",
+        "implementationClassName": "HybridDeviceGravity"
+      }
+    },
+    "PersonMatte": {
+      "ios": {
+        "language": "swift",
+        "implementationClassName": "HybridPersonMatte"
+      }
+    },
+    "SceneLight": {
+      "ios": {
+        "language": "swift",
+        "implementationClassName": "HybridSceneLight"
+      }
+    }
+  },
+  "ignorePaths": ["**/node_modules", "example"]
+}

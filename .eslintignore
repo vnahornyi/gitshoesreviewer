@@ -1,0 +1,9 @@
+# Cloned third-party research code and Python environments: not ours to lint, and their bundled
+# JavaScript (jQuery and friends) is what makes `npm run lint` fail on a machine that has them.
+vendor/
+**/vendor/
+**/.venv/
+**/nitrogen/generated/
+
+# The example app lints itself, with its own config: `npm --prefix example run lint`.
+example/

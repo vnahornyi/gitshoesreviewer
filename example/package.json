@@ -1,0 +1,46 @@
+{
+  "name": "shoe-tryon-example",
+  "version": "0.0.1",
+  "private": true,
+  "description": "The debug app for react-native-shoe-tryon: one screen that shows every number the pipeline produces",
+  "scripts": {
+    "android": "react-native run-android",
+    "ios": "react-native run-ios",
+    "start": "react-native start --reset-cache",
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit",
+    "pod-install": "cd ios && bundle exec pod install && cd ..",
+    "pod-update": "cd ios && bundle exec pod update && cd ..",
+    "clean": "react-native clean"
+  },
+  "dependencies": {
+    "react": "19.2.3",
+    "react-native": "0.87.1",
+    "react-native-nitro-image": "^0.15.2",
+    "react-native-nitro-modules": "^0.37.1",
+    "react-native-safe-area-context": "^5.5.2",
+    "react-native-shoe-tryon": "file:..",
+    "react-native-vision-camera": "^5.2.3",
+    "react-native-vision-camera-worklets": "^5.2.3",
+    "react-native-worklets": "^0.12.2"
+  },
+  "devDependencies": {
+    "@babel/core": "^7.25.2",
+    "@babel/preset-env": "^7.25.3",
+    "@babel/runtime": "^7.25.0",
+    "@react-native-community/cli": "20.2.0",
+    "@react-native-community/cli-platform-android": "20.2.0",
+    "@react-native-community/cli-platform-ios": "20.2.0",
+    "@react-native/babel-preset": "0.87.1",
+    "@react-native/eslint-config": "0.87.1",
+    "@react-native/metro-config": "0.87.1",
+    "@react-native/typescript-config": "0.87.1",
+    "@types/react": "^19.2.0",
+    "eslint": "^8.19.0",
+    "prettier": "2.8.8",
+    "typescript": "^6.0.3"
+  },
+  "engines": {
+    "node": ">= 22.11.0"
+  }
+}
