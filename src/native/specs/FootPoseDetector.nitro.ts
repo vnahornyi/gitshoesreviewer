@@ -14,12 +14,17 @@ export interface FootPoseResult {
   preprocessMs: number;
   inferenceMs: number;
   refineMs: number;
+  maskPreviewMs: number;
+  maskPreviewStatus: string;
 }
 
 export interface FootPoseDetector extends HybridObject<{ ios: 'swift' }> {
   readonly status: string;
   // Run FootNet on a crop around each foot RTMPose found, for its 8 keypoints.
   refine: boolean;
+  // Run the optional visible-foot mask model on the already tracked crops for the debug preview only.
+  maskPreview: boolean;
+  maskThreshold: number;
   load(model: FootModel): void;
   detect(frame: Frame): FootPoseResult;
 }

@@ -25,6 +25,8 @@ namespace margelo::nitro::shoetryon::views {
     shoes(nitro::ReactProp<std::vector<ShoePose>>::fromRawValue("ShoeView", "shoes", rawProps, sourceProps.shoes)),
     legMatte(nitro::ReactProp<bool>::fromRawValue("ShoeView", "legMatte", rawProps, sourceProps.legMatte)),
     matchCamera(nitro::ReactProp<bool>::fromRawValue("ShoeView", "matchCamera", rawProps, sourceProps.matchCamera)),
+    maskPreview(nitro::ReactProp<bool>::fromRawValue("ShoeView", "maskPreview", rawProps, sourceProps.maskPreview)),
+    maskPreviewVersion(nitro::ReactProp<double>::fromRawValue("ShoeView", "maskPreviewVersion", rawProps, sourceProps.maskPreviewVersion)),
     hybridRef(nitro::ReactProp<std::optional<std::function<void(const std::shared_ptr<HybridShoeViewSpec>& /* ref */)>>>::fromRawValue("ShoeView", "hybridRef", rawProps, sourceProps.hybridRef)) { }
 
   bool HybridShoeViewProps::filterObjectKeys(const std::string& propName) {
@@ -34,6 +36,8 @@ namespace margelo::nitro::shoetryon::views {
       case hashString("shoes"): return true;
       case hashString("legMatte"): return true;
       case hashString("matchCamera"): return true;
+      case hashString("maskPreview"): return true;
+      case hashString("maskPreviewVersion"): return true;
       case hashString("hybridRef"): return true;
       default: return false;
     }

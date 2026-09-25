@@ -13,6 +13,8 @@ public protocol HybridFootPoseDetectorSpec_protocol: HybridObject {
   // Properties
   var status: String { get }
   var refine: Bool { get set }
+  var maskPreview: Bool { get set }
+  var maskThreshold: Double { get set }
 
   // Methods
   func load(model: FootModel) throws -> Void

@@ -24,6 +24,10 @@ namespace margelo::nitro::shoetryon {
       prototype.registerHybridSetter("legMatte", &HybridShoeViewSpec::setLegMatte);
       prototype.registerHybridGetter("matchCamera", &HybridShoeViewSpec::getMatchCamera);
       prototype.registerHybridSetter("matchCamera", &HybridShoeViewSpec::setMatchCamera);
+      prototype.registerHybridGetter("maskPreview", &HybridShoeViewSpec::getMaskPreview);
+      prototype.registerHybridSetter("maskPreview", &HybridShoeViewSpec::setMaskPreview);
+      prototype.registerHybridGetter("maskPreviewVersion", &HybridShoeViewSpec::getMaskPreviewVersion);
+      prototype.registerHybridSetter("maskPreviewVersion", &HybridShoeViewSpec::setMaskPreviewVersion);
     });
   }
 

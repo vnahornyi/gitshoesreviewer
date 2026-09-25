@@ -31,6 +31,7 @@
 
 
 #include <vector>
+#include <string>
 
 namespace margelo::nitro::shoetryon {
 
@@ -45,10 +46,12 @@ namespace margelo::nitro::shoetryon {
     double preprocessMs     SWIFT_PRIVATE;
     double inferenceMs     SWIFT_PRIVATE;
     double refineMs     SWIFT_PRIVATE;
+    double maskPreviewMs     SWIFT_PRIVATE;
+    std::string maskPreviewStatus     SWIFT_PRIVATE;
 
   public:
     FootPoseResult() = default;
-    explicit FootPoseResult(std::vector<double> points, std::vector<double> refined, std::vector<double> crops, double preprocessMs, double inferenceMs, double refineMs): points(points), refined(refined), crops(crops), preprocessMs(preprocessMs), inferenceMs(inferenceMs), refineMs(refineMs) {}
+    explicit FootPoseResult(std::vector<double> points, std::vector<double> refined, std::vector<double> crops, double preprocessMs, double inferenceMs, double refineMs, double maskPreviewMs, std::string maskPreviewStatus): points(points), refined(refined), crops(crops), preprocessMs(preprocessMs), inferenceMs(inferenceMs), refineMs(refineMs), maskPreviewMs(maskPreviewMs), maskPreviewStatus(maskPreviewStatus) {}
 
   public:
     friend bool operator==(const FootPoseResult& lhs, const FootPoseResult& rhs) = default;
@@ -69,7 +72,9 @@ namespace margelo::nitro {
         JSIConverter<std::vector<double>>::fromJSI(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "crops"))),
         JSIConverter<double>::fromJSI(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "preprocessMs"))),
         JSIConverter<double>::fromJSI(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "inferenceMs"))),
-        JSIConverter<double>::fromJSI(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "refineMs")))
+        JSIConverter<double>::fromJSI(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "refineMs"))),
+        JSIConverter<double>::fromJSI(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "maskPreviewMs"))),
+        JSIConverter<std::string>::fromJSI(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "maskPreviewStatus")))
       );
     }
     static inline jsi::Value toJSI(jsi::Runtime& runtime, const margelo::nitro::shoetryon::FootPoseResult& arg) {
@@ -80,6 +85,8 @@ namespace margelo::nitro {
       obj.setProperty(runtime, PropNameIDCache::get(runtime, "preprocessMs"), JSIConverter<double>::toJSI(runtime, arg.preprocessMs));
       obj.setProperty(runtime, PropNameIDCache::get(runtime, "inferenceMs"), JSIConverter<double>::toJSI(runtime, arg.inferenceMs));
       obj.setProperty(runtime, PropNameIDCache::get(runtime, "refineMs"), JSIConverter<double>::toJSI(runtime, arg.refineMs));
+      obj.setProperty(runtime, PropNameIDCache::get(runtime, "maskPreviewMs"), JSIConverter<double>::toJSI(runtime, arg.maskPreviewMs));
+      obj.setProperty(runtime, PropNameIDCache::get(runtime, "maskPreviewStatus"), JSIConverter<std::string>::toJSI(runtime, arg.maskPreviewStatus));
       return obj;
     }
     static inline bool canConvert(jsi::Runtime& runtime, const jsi::Value& value) {
@@ -96,6 +103,8 @@ namespace margelo::nitro {
       if (!JSIConverter<double>::canConvert(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "preprocessMs")))) return false;
       if (!JSIConverter<double>::canConvert(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "inferenceMs")))) return false;
       if (!JSIConverter<double>::canConvert(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "refineMs")))) return false;
+      if (!JSIConverter<double>::canConvert(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "maskPreviewMs")))) return false;
+      if (!JSIConverter<std::string>::canConvert(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "maskPreviewStatus")))) return false;
       return true;
     }
   };

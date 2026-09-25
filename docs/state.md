@@ -32,10 +32,12 @@ one says how well.
   attempts at guessing it geometrically were measured and rejected. The developer confirms the live
   model still flickers instead of recognizing the foot when the heel is not visible; the decoder
   parity and coordinate probes did not address this visibility/tracking failure.
-- **Visible-foot mask experiment is not ready for the app.** A new crop model trained from scratch
-  reaches 0.905 Dice on held-out synthetic renders, but qualitative real-frame overlays still miss
-  selected socks or spill onto neighbouring regions. It still needs RTMPose to acquire its first
-  crop. There is no real foot-mask ground truth, no iPhone 11 latency trace and no live integration.
+- **Visible-foot mask is available as a diagnostic camera preview only.** The example's “Маска”
+  layer runs the optional crop model on regions the existing RTMPose/tracker path already follows,
+  and displays a native overlay with a threshold selector. It cannot acquire a foot on its own or
+  affect tracking. The model reaches 0.905 Dice on held-out synthetic renders, but qualitative
+  real-frame overlays still miss selected socks or spill onto neighbouring regions. There is no
+  real foot-mask ground truth and no physical-device latency trace or live-device validation yet.
   The 6 fps RTMPose result does not measure a lightweight full-frame mask model.
 - **Looking down at your own feet.** Measured 2026-09-23: the mirror view places both shoes
   correctly, the top-down view flickers between confident and blank on a static scene and draws
@@ -86,7 +88,7 @@ one says how well.
 2. **Compare a light full-frame mask model with the crop model.** The crop model still requires
    RTMPose to seed an initial region. The existing 6 fps measurement is for RTMPose, so it cannot
    predict the speed of a small segmentation model; test recall and latency on iPhone 11.
-3. Only consider app integration after real-mask evaluation, an iPhone 11 execution trace and live
+3. Only consider production integration after real-mask evaluation, an iPhone 11 execution trace and live
    mirror/top/side tracking checks. Shoes remain a separate data gap: neither current render set
    contains footwear. RTMPose Core ML, the 64×64 decoder, floor-plane fitting, package model delivery
    and Android remain later work.

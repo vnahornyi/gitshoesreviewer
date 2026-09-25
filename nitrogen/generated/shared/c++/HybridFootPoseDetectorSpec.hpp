@@ -56,6 +56,10 @@ namespace margelo::nitro::shoetryon {
       virtual std::string getStatus() = 0;
       virtual bool getRefine() = 0;
       virtual void setRefine(bool refine) = 0;
+      virtual bool getMaskPreview() = 0;
+      virtual void setMaskPreview(bool maskPreview) = 0;
+      virtual double getMaskThreshold() = 0;
+      virtual void setMaskThreshold(double maskThreshold) = 0;
 
     public:
       // Methods

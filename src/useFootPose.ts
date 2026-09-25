@@ -29,6 +29,9 @@ export type FootPoseSample = {
   // The last whole-frame search, which does not happen on every frame any more.
   searchMs: number;
   matteMs?: number;
+  maskPreviewMs: number;
+  maskPreviewStatus: string;
+  sampleVersion: number;
   frameWidth: number;
   frameHeight: number;
   isMirrored: boolean;
@@ -76,12 +79,19 @@ function logSample(sample: FootPoseSample, fps: number) {
 export type FrameExtras = {
   legMatte: boolean;
   sceneLight: boolean;
+  maskPreview: boolean;
+  maskThreshold: number;
 };
 
 // The body model. RTMW x-l sees more joints but is four times slower, and the foot joints are the same.
 const MODEL = 'rtmpose-m';
 
-export function useFootPose({ legMatte, sceneLight }: FrameExtras) {
+export function useFootPose({
+  legMatte,
+  sceneLight,
+  maskPreview,
+  maskThreshold,
+}: FrameExtras) {
   const detector = useMemo(createFootPoseDetector, []);
   const matte = useMemo(createPersonMatte, []);
   const light = useMemo(createSceneLight, []);
@@ -92,13 +102,24 @@ export function useFootPose({ legMatte, sceneLight }: FrameExtras) {
   const arrivals = useRef<number[]>([]);
   const searchMs = useRef(0);
   const loggedAt = useRef(0);
+  const sampleVersion = useRef(0);
 
   // The frame processor keeps the closure it started with, so the flags live on the native objects.
   useEffect(() => {
     matte.enabled = legMatte;
     light.enabled = sceneLight;
     detector.refine = true;
-  }, [detector, matte, light, legMatte, sceneLight]);
+    detector.maskPreview = maskPreview;
+    detector.maskThreshold = maskThreshold;
+  }, [
+    detector,
+    matte,
+    light,
+    legMatte,
+    sceneLight,
+    maskPreview,
+    maskThreshold,
+  ]);
   const tracks = useRef<FootTrack[]>([]);
   const lastId = useRef(0);
 
@@ -136,7 +157,11 @@ export function useFootPose({ legMatte, sceneLight }: FrameExtras) {
     if (next.inferenceMs > 0) {
       searchMs.current = next.preprocessMs + next.inferenceMs;
     }
-    setSample({ ...next, searchMs: searchMs.current });
+    setSample({
+      ...next,
+      searchMs: searchMs.current,
+      sampleVersion: ++sampleVersion.current,
+    });
   }, []);
 
   const onFrame = useCallback(
@@ -152,9 +177,12 @@ export function useFootPose({ legMatte, sceneLight }: FrameExtras) {
           refined: result.refined,
           crops: result.crops,
           refineMs: result.refineMs,
+          maskPreviewMs: result.maskPreviewMs,
+          maskPreviewStatus: result.maskPreviewStatus,
           preprocessMs: result.preprocessMs,
           inferenceMs: result.inferenceMs,
           searchMs: 0,
+          sampleVersion: 0,
           matteMs,
           frameWidth: frame.width,
           frameHeight: frame.height,

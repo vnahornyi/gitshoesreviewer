@@ -82,7 +82,8 @@ uv run python -m footnet.real                              # RTMPose crop → Fo
 The separate `footmask-v1` experiment trains from random initialization on the owned render masks;
 it treats bare-foot and sock pixels as the same visible-foot class and does not require a visible
 heel. Crops are centered from visible-mask bounds, with empty-background crops for rejection. It is
-not the checkpoint loaded by the app and is not wired into `FootNetRunner`.
+a separate optional diagnostic model: the example camera can preview masks inside crops already
+seeded by RTMPose, but the model does not drive tracking or full-frame acquisition.
 
 ```bash
 uv run python -m footnet.train_mask --epochs 20 --batch 32 --workers 8
@@ -126,8 +127,8 @@ an iPhone run or an execution-provider trace.
 The qualitative pass sampled one middle frame from each of 23 real clips. RTMPose seeded 42 of 46
 possible feet. The mask still misses a sock in some mirror crops and spills onto neighbouring
 regions in some views at both 0.5 and 0.7. There are no dense real-foot labels to score these
-overlays. The artifact remains a research candidate: it is not wired into `FootNetRunner`, has no
-iPhone 11 trace, and does not remove RTMPose from initial crop acquisition. A lightweight
+overlays. The artifact remains a research candidate: the camera overlay is diagnostic only, it has
+no iPhone 11 trace, and it does not remove RTMPose from initial crop acquisition. A lightweight
 full-frame segmenter remains unmeasured; the existing 6 fps result belongs to RTMPose, not to such
 a mask model.
 

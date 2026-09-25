@@ -100,6 +100,18 @@ namespace margelo::nitro::shoetryon {
     inline void setMatchCamera(bool matchCamera) noexcept override {
       _swiftPart.setMatchCamera(std::forward<decltype(matchCamera)>(matchCamera));
     }
+    inline bool getMaskPreview() noexcept override {
+      return _swiftPart.getMaskPreview();
+    }
+    inline void setMaskPreview(bool maskPreview) noexcept override {
+      _swiftPart.setMaskPreview(std::forward<decltype(maskPreview)>(maskPreview));
+    }
+    inline double getMaskPreviewVersion() noexcept override {
+      return _swiftPart.getMaskPreviewVersion();
+    }
+    inline void setMaskPreviewVersion(double maskPreviewVersion) noexcept override {
+      _swiftPart.setMaskPreviewVersion(std::forward<decltype(maskPreviewVersion)>(maskPreviewVersion));
+    }
 
   public:
     // Methods

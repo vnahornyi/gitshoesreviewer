@@ -12,7 +12,7 @@ lose an hour here: the Swift side keeps compiling against the old generated spec
 | File | Hybrid object |
 |---|---|
 | `HybridFootPoseDetector.swift` | `FootPoseDetector` — RTMPose/RTMW through ONNX Runtime |
-| `FootNetRunner.swift` | FootNet through Core ML, used by the detector when `refine` is on |
+| `FootNetRunner.swift` | FootNet through Core ML, plus the optional diagnostic mask model |
 | `HybridShoeView.swift` | `ShoeView` — the RealityKit stage |
 | `HybridPersonMatte.swift` | `PersonMatte` — Apple Vision person segmentation |
 | `HybridSceneLight.swift` | `SceneLight` — frame exposure and colour cast |
@@ -30,6 +30,19 @@ cp assets/onnx/rtmpose-m-fp16.onnx assets/onnx/rtmw-x-l-fp16.onnx model/
 cd research/foot-3d && uv run python -m footnet.export   # writes ../../model/footnet.mlmodelc
 cd example/ios && bundle exec pod install
 ```
+
+To preview the experimental visible-foot mask in the example camera, copy its compiled model too,
+then reinstall the pod so CocoaPods bundles it:
+
+```bash
+cp -R assets/checkpoints/footmask-v1/footmask-v1.mlmodelc model/
+cd example/ios && bundle exec pod install
+```
+
+The mask model is optional. If it is absent or cannot load, the existing detector still runs and the
+debug screen reports its mask status. The “Маска” layer runs it only on crops that RTMPose has
+already seeded and the native tracker is following; it cannot discover a foot across the full frame
+or change tracking. The overlay is diagnostic and does not replace production shoe rendering.
 
 The RTMPose models run through ONNX Runtime, and Core ML compiles each into
 `Caches/foot-pose-coreml/<model>` on its first load, so `status` stays `loading …` until that
@@ -63,6 +76,11 @@ whole network stays on the Neural Engine at 1.9 ms. The same is worth doing for 
   `refined` then holds the left foot's 8 points and the right foot's, each `[x, y, score]` normalized
   to the frame, in `FOOT_NET_JOINTS` order, and `refineMs` how long both feet took. A foot that was
   not found, or not refined, is all zeros.
+- `maskPreview` is an example-only diagnostic flag. When true, the optional `footmask-v1.mlmodelc`
+  runs on each active FootNet crop, downsamples and thresholds its logits on the native side, and
+  stores the two results for `ShoeView` to draw. Only status, threshold and timing cross the Nitro
+  interface; mask pixels stay native. The mask never seeds or moves a crop. `maskPreviewStatus`
+  reports `ready`, `missing`, or a load/inference error.
 - The shared Swift decoder and frame normalization live in `FootNetDecoder.swift`. The research
   parity probe calls this same decoder on model logits quantized like the Core ML output and
   compares its points and scores against the PyTorch decoder on the same labelled crops:

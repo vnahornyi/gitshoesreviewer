@@ -85,7 +85,7 @@ open class HybridFootPoseDetectorSpec_cxx {
     }
   }
 
-  
+
 
   /**
    * Get the memory size of the Swift class (plus size of any other allocations)
@@ -128,7 +128,7 @@ open class HybridFootPoseDetectorSpec_cxx {
       return std.string(self.__implementation.status)
     }
   }
-  
+
   public final var refine: Bool {
     @inline(__always)
     get {
@@ -137,6 +137,28 @@ open class HybridFootPoseDetectorSpec_cxx {
     @inline(__always)
     set {
       self.__implementation.refine = newValue
+    }
+  }
+
+  public final var maskPreview: Bool {
+    @inline(__always)
+    get {
+      return self.__implementation.maskPreview
+    }
+    @inline(__always)
+    set {
+      self.__implementation.maskPreview = newValue
+    }
+  }
+
+  public final var maskThreshold: Double {
+    @inline(__always)
+    get {
+      return self.__implementation.maskThreshold
+    }
+    @inline(__always)
+    set {
+      self.__implementation.maskThreshold = newValue
     }
   }
 
@@ -151,7 +173,7 @@ open class HybridFootPoseDetectorSpec_cxx {
       return bridge.create_Result_void_(__exceptionPtr)
     }
   }
-  
+
   @inline(__always)
   public final func detect(frame: bridge.std__shared_ptr_margelo__nitro__camera__HybridFrameSpec_) -> bridge.Result_FootPoseResult_ {
     do {

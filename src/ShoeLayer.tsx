@@ -118,6 +118,7 @@ type ShoeLayerProps = {
   view: Size;
   legMatte: boolean;
   matchCamera: boolean;
+  maskPreview?: boolean;
 };
 
 export function ShoeLayer({
@@ -126,6 +127,7 @@ export function ShoeLayer({
   view,
   legMatte,
   matchCamera,
+  maskPreview = false,
 }: ShoeLayerProps) {
   const frame = useMemo(
     () => ({ width: sample.frameWidth, height: sample.frameHeight }),
@@ -171,14 +173,20 @@ export function ShoeLayer({
     };
   });
 
-  const lastPose = useRef(new Map<number, { transform: number[]; at: number }>());
+  const lastPose = useRef(
+    new Map<number, { transform: number[]; at: number }>(),
+  );
   const drawn = placed.map(entry => {
     if (entry.transform) {
       return { ...entry, held: false };
     }
     const previous = lastPose.current.get(entry.foot.id);
     const fresh = previous && now - previous.at <= HOLD_MS;
-    return { ...entry, transform: fresh ? previous.transform : null, held: !!fresh };
+    return {
+      ...entry,
+      transform: fresh ? previous.transform : null,
+      held: !!fresh,
+    };
   });
 
   const shoes = drawn.flatMap<ShoePose>(({ foot, transform }) =>
@@ -232,11 +240,13 @@ export function ShoeLayer({
           height: bottomRight.y - topLeft.y,
         },
       ]}
-      model={SHOE_MODEL}
+      model={maskPreview ? '' : SHOE_MODEL}
       verticalFovDegrees={verticalFovDegrees(frame, intrinsics)}
       shoes={shoes}
       legMatte={legMatte}
       matchCamera={matchCamera}
+      maskPreview={maskPreview}
+      maskPreviewVersion={sample.sampleVersion}
     />
   );
 }

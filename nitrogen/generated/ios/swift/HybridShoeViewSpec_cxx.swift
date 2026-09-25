@@ -84,7 +84,7 @@ open class HybridShoeViewSpec_cxx {
     }
   }
 
-  
+
 
   /**
    * Get the memory size of the Swift class (plus size of any other allocations)
@@ -131,7 +131,7 @@ open class HybridShoeViewSpec_cxx {
       self.__implementation.model = String(newValue)
     }
   }
-  
+
   public final var verticalFovDegrees: Double {
     @inline(__always)
     get {
@@ -142,7 +142,7 @@ open class HybridShoeViewSpec_cxx {
       self.__implementation.verticalFovDegrees = newValue
     }
   }
-  
+
   public final var shoes: bridge.std__vector_ShoePose_ {
     @inline(__always)
     get {
@@ -159,7 +159,7 @@ open class HybridShoeViewSpec_cxx {
       self.__implementation.shoes = newValue.map({ __item in __item })
     }
   }
-  
+
   public final var legMatte: Bool {
     @inline(__always)
     get {
@@ -170,7 +170,7 @@ open class HybridShoeViewSpec_cxx {
       self.__implementation.legMatte = newValue
     }
   }
-  
+
   public final var matchCamera: Bool {
     @inline(__always)
     get {
@@ -182,24 +182,46 @@ open class HybridShoeViewSpec_cxx {
     }
   }
 
+  public final var maskPreview: Bool {
+    @inline(__always)
+    get {
+      return self.__implementation.maskPreview
+    }
+    @inline(__always)
+    set {
+      self.__implementation.maskPreview = newValue
+    }
+  }
+
+  public final var maskPreviewVersion: Double {
+    @inline(__always)
+    get {
+      return self.__implementation.maskPreviewVersion
+    }
+    @inline(__always)
+    set {
+      self.__implementation.maskPreviewVersion = newValue
+    }
+  }
+
   // Methods
   public final func getView() -> UnsafeMutableRawPointer {
     return Unmanaged.passRetained(__implementation.view).toOpaque()
   }
-  
+
   public final func beforeUpdate() {
     __implementation.beforeUpdate()
   }
-  
+
   public final func afterUpdate() {
     __implementation.afterUpdate()
   }
-  
+
   public final func maybePrepareForRecycle() {
     guard let recyclable = __implementation as? any RecyclableView else { return }
     recyclable.prepareForRecycle()
   }
-  
+
   public final func onDropView() {
     __implementation.onDropView()
   }

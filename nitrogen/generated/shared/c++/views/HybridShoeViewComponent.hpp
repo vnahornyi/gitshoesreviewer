@@ -50,6 +50,8 @@ namespace margelo::nitro::shoetryon::views {
     nitro::ReactProp<std::vector<ShoePose>> shoes;
     nitro::ReactProp<bool> legMatte;
     nitro::ReactProp<bool> matchCamera;
+    nitro::ReactProp<bool> maskPreview;
+    nitro::ReactProp<double> maskPreviewVersion;
     nitro::ReactProp<std::optional<std::function<void(const std::shared_ptr<HybridShoeViewSpec>& /* ref */)>>> hybridRef;
 
     [[nodiscard]]
@@ -59,6 +61,8 @@ namespace margelo::nitro::shoetryon::views {
              shoes.hasSameValue(other.shoes) &&
              legMatte.hasSameValue(other.legMatte) &&
              matchCamera.hasSameValue(other.matchCamera) &&
+             maskPreview.hasSameValue(other.maskPreview) &&
+             maskPreviewVersion.hasSameValue(other.maskPreviewVersion) &&
              hybridRef.hasSameValue(other.hybridRef);
     }
 
@@ -69,6 +73,8 @@ namespace margelo::nitro::shoetryon::views {
              shoes.isProvided() ||
              legMatte.isProvided() ||
              matchCamera.isProvided() ||
+             maskPreview.isProvided() ||
+             maskPreviewVersion.isProvided() ||
              hybridRef.isProvided();
     }
 

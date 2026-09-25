@@ -20,6 +20,9 @@ export interface ShoeViewProps extends HybridViewProps {
   legMatte: boolean;
   // Light the shoe with the frame's brightness and colour cast, and add the camera's slight blur and grain.
   matchCamera: boolean;
+  // Draw the latest native foot-mask diagnostic over the camera frame.
+  maskPreview: boolean;
+  maskPreviewVersion: number;
 }
 
 export interface ShoeViewMethods extends HybridViewMethods {}

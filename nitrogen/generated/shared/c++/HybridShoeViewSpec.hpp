@@ -57,6 +57,10 @@ namespace margelo::nitro::shoetryon {
       virtual void setLegMatte(bool legMatte) = 0;
       virtual bool getMatchCamera() = 0;
       virtual void setMatchCamera(bool matchCamera) = 0;
+      virtual bool getMaskPreview() = 0;
+      virtual void setMaskPreview(bool maskPreview) = 0;
+      virtual double getMaskPreviewVersion() = 0;
+      virtual void setMaskPreviewVersion(double maskPreviewVersion) = 0;
 
     public:
       // Methods

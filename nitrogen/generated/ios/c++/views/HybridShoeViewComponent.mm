@@ -128,6 +128,18 @@ using namespace margelo::nitro::shoetryon::views;
           : !newViewProps.matchCamera.hasSameValue(oldViewProps->matchCamera)) {
       swiftPart.setMatchCamera(newViewProps.matchCamera.get());
     }
+    // maskPreview: boolean
+    if (oldViewProps == nullptr
+          ? newViewProps.maskPreview.isProvided()
+          : !newViewProps.maskPreview.hasSameValue(oldViewProps->maskPreview)) {
+      swiftPart.setMaskPreview(newViewProps.maskPreview.get());
+    }
+    // maskPreviewVersion: number
+    if (oldViewProps == nullptr
+          ? newViewProps.maskPreviewVersion.isProvided()
+          : !newViewProps.maskPreviewVersion.hasSameValue(oldViewProps->maskPreviewVersion)) {
+      swiftPart.setMaskPreviewVersion(newViewProps.maskPreviewVersion.get());
+    }
 
     // Update hybridRef if it changed
     if (oldViewProps == nullptr

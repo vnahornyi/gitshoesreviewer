@@ -18,7 +18,7 @@ public extension FootPoseResult {
   /**
    * Create a new instance of `FootPoseResult`.
    */
-  init(points: [Double], refined: [Double], crops: [Double], preprocessMs: Double, inferenceMs: Double, refineMs: Double) {
+  init(points: [Double], refined: [Double], crops: [Double], preprocessMs: Double, inferenceMs: Double, refineMs: Double, maskPreviewMs: Double, maskPreviewStatus: String) {
     self.init({ () -> bridge.std__vector_double_ in
       var __vector = bridge.create_std__vector_double_(points.count)
       for __item in points {
@@ -37,36 +37,46 @@ public extension FootPoseResult {
         __vector.push_back(__item)
       }
       return __vector
-    }(), preprocessMs, inferenceMs, refineMs)
+    }(), preprocessMs, inferenceMs, refineMs, maskPreviewMs, std.string(maskPreviewStatus))
   }
 
   @inline(__always)
   var points: [Double] {
     return self.__points.map({ __item in __item })
   }
-  
+
   @inline(__always)
   var refined: [Double] {
     return self.__refined.map({ __item in __item })
   }
-  
+
   @inline(__always)
   var crops: [Double] {
     return self.__crops.map({ __item in __item })
   }
-  
+
   @inline(__always)
   var preprocessMs: Double {
     return self.__preprocessMs
   }
-  
+
   @inline(__always)
   var inferenceMs: Double {
     return self.__inferenceMs
   }
-  
+
   @inline(__always)
   var refineMs: Double {
     return self.__refineMs
+  }
+
+  @inline(__always)
+  var maskPreviewMs: Double {
+    return self.__maskPreviewMs
+  }
+
+  @inline(__always)
+  var maskPreviewStatus: String {
+    return String(self.__maskPreviewStatus)
   }
 }

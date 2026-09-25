@@ -17,6 +17,10 @@ namespace margelo::nitro::shoetryon {
       prototype.registerHybridGetter("status", &HybridFootPoseDetectorSpec::getStatus);
       prototype.registerHybridGetter("refine", &HybridFootPoseDetectorSpec::getRefine);
       prototype.registerHybridSetter("refine", &HybridFootPoseDetectorSpec::setRefine);
+      prototype.registerHybridGetter("maskPreview", &HybridFootPoseDetectorSpec::getMaskPreview);
+      prototype.registerHybridSetter("maskPreview", &HybridFootPoseDetectorSpec::setMaskPreview);
+      prototype.registerHybridGetter("maskThreshold", &HybridFootPoseDetectorSpec::getMaskThreshold);
+      prototype.registerHybridSetter("maskThreshold", &HybridFootPoseDetectorSpec::setMaskThreshold);
       prototype.registerHybridMethod("load", &HybridFootPoseDetectorSpec::load);
       prototype.registerHybridMethod("detect", &HybridFootPoseDetectorSpec::detect);
     });

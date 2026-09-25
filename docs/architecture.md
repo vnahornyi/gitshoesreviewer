@@ -10,6 +10,7 @@ VisionCamera frame (BGRA, upright)
   │
   ├─ HybridFootPoseDetector.detect(frame)
   │    ├─ for each foot being followed: FootNet on its own crop   ~15 ms / foot
+  │    │    └─ debug only, when selected: footmask-v1 on that crop
   │    └─ only if a foot is not followed, ≤ 4×/s: RTMPose on the whole frame
   │
   └─ scheduleOnRN → JS
@@ -66,6 +67,15 @@ frame where FootNet was sure and RTMPose did not run, the app still needs points
 toe** — the one point both models produce. For up to 600 ms (`CARRY_MS`) after FootNet last ran,
 those offsets are moved by however far that big toe moved. After that the body model's own points
 take over.
+
+## Diagnostic visible-foot mask
+
+The example camera can run the optional `footmask-v1` model on the same tracked crops while the
+“Маска” layer is selected. It thresholds and downsamples each result on the native side, then draws
+the two masks over their crop bounds. Mask pixels do not cross into JavaScript. The preview does not
+search the full frame, seed a new crop, affect tracking, or replace the shoe path; without an
+RTMPose-acquired crop there is no mask to show. Its extra per-frame inference time is reported in
+the debug screen. See the local model setup in [`ios/README.md`](../ios/README.md).
 
 Smoothing is One Euro, on normalized coordinates, so a speed of 1 means one frame **width** per
 second — x and y are not comparable in pixels.

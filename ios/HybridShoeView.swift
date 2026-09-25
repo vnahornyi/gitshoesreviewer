@@ -66,6 +66,7 @@ final class HybridShoeView: HybridShoeViewSpec {
   private let content = AnchorEntity(world: .zero)
   private var templates: [ShoeSide: Entity] = [:]
   private var placed: [Int: (side: ShoeSide, entity: Entity)] = [:]
+  private let maskOverlay = FootMaskOverlayView(frame: .zero)
   private let matteLayer = CALayer()
   private let key = DirectionalLight()
   private let fill = DirectionalLight()
@@ -92,6 +93,28 @@ final class HybridShoeView: HybridShoeViewSpec {
 
   var legMatte: Bool = false
   var matchCamera: Bool = false
+  var maskPreview: Bool = false {
+    didSet {
+      DispatchQueue.main.async {
+        self.maskOverlay.isHidden = !self.maskPreview
+        if self.maskPreview {
+          self.maskOverlay.refresh()
+        } else {
+          self.maskOverlay.clear()
+        }
+      }
+    }
+  }
+
+  var maskPreviewVersion: Double = 0 {
+    didSet {
+      guard maskPreviewVersion != oldValue else { return }
+      DispatchQueue.main.async {
+        guard self.maskPreview else { return }
+        self.maskOverlay.refresh()
+      }
+    }
+  }
 
   var shoes: [ShoePose] = [] {
     didSet {
@@ -107,6 +130,10 @@ final class HybridShoeView: HybridShoeViewSpec {
     arView.isOpaque = false
     arView.isUserInteractionEnabled = false
     arView.renderOptions.insert(.disableMotionBlur)
+    maskOverlay.frame = arView.bounds
+    maskOverlay.autoresizingMask = [.flexibleWidth, .flexibleHeight]
+    maskOverlay.isHidden = true
+    arView.addSubview(maskOverlay)
 
     camera.camera.near = 0.01
     camera.camera.far = 20

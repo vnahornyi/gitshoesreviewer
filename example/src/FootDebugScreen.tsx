@@ -16,12 +16,13 @@ import {
 } from 'react-native-shoe-tryon';
 import { FootOverlay } from './FootOverlay';
 
-type Layer = 'axes' | 'shoe' | 'both';
+type Layer = 'axes' | 'shoe' | 'both' | 'mask';
 
 const LAYER_LABELS: Record<Layer, string> = {
   axes: 'Стрілки',
   shoe: '3D',
   both: '3D + точки',
+  mask: 'Маска',
 };
 
 function Toggle<T extends string>({
@@ -70,6 +71,8 @@ function Stats({
   fps,
   searchMs,
   matteMs,
+  maskPreviewMs,
+  maskPreviewStatus,
   refineMs,
   refined,
   crops,
@@ -83,6 +86,8 @@ function Stats({
   fps: number;
   searchMs?: number;
   matteMs?: number;
+  maskPreviewMs?: number;
+  maskPreviewStatus?: string;
 }) {
   if (status !== 'ready') {
     return <Text style={styles.stats}>Модель: {status}</Text>;
@@ -93,7 +98,12 @@ function Stats({
       {sureOf(refined)}
       /16 · кроп {crops?.[3].toFixed(2) ?? '–'}/{crops?.[7].toFixed(2) ?? '–'} ·
       пошук {searchMs?.toFixed(0) ?? '–'} мс
-      {matteMs === undefined ? '' : ` · маска ${matteMs.toFixed(0)} мс`}
+      {matteMs === undefined ? '' : ` · людина ${matteMs.toFixed(0)} мс`}
+      {maskPreviewStatus === undefined
+        ? ''
+        : ` · маска ${maskPreviewStatus} ${
+            maskPreviewMs?.toFixed(1) ?? '–'
+          } мс`}
       {frame ? ` · ${frame.width}×${frame.height}` : ''}
     </Text>
   );
@@ -117,11 +127,15 @@ function PermissionGate({ onRequest }: { onRequest: () => void }) {
 function LiveFeet() {
   const insets = useSafeAreaInsets();
   const [layer, setLayer] = useState<Layer>('axes');
+  const [threshold, setThreshold] = useState<'0.3' | '0.5' | '0.7'>('0.5');
   const [view, setView] = useState<Size | null>(null);
-  const showShoe = layer !== 'axes';
+  const showMask = layer === 'mask';
+  const showShoe = layer === 'shoe' || layer === 'both';
   const { frameOutput, sample, feet, status, fps } = useFootPose({
     legMatte: showShoe,
     sceneLight: showShoe,
+    maskPreview: showMask,
+    maskThreshold: Number(threshold),
   });
 
   const onLayout = (event: LayoutChangeEvent) => {
@@ -139,16 +153,17 @@ function LiveFeet() {
           outputs={[frameOutput]}
           resizeMode="contain"
         />
-        {sample && view && showShoe ? (
+        {sample && view && (showShoe || showMask) ? (
           <ShoeLayer
-            feet={feet}
+            feet={showMask ? [] : feet}
             sample={sample}
             view={view}
-            legMatte
-            matchCamera
+            legMatte={showShoe}
+            matchCamera={showShoe}
+            maskPreview={showMask}
           />
         ) : null}
-        {sample && view && layer !== 'shoe' ? (
+        {sample && view && (layer === 'axes' || layer === 'both') ? (
           <FootOverlay
             feet={feet}
             frame={{ width: sample.frameWidth, height: sample.frameHeight }}
@@ -162,6 +177,8 @@ function LiveFeet() {
           fps={fps}
           searchMs={sample?.searchMs}
           matteMs={showShoe ? sample?.matteMs : undefined}
+          maskPreviewMs={showMask ? sample?.maskPreviewMs : undefined}
+          maskPreviewStatus={showMask ? sample?.maskPreviewStatus : undefined}
           refineMs={sample?.refineMs}
           refined={sample?.refined}
           crops={sample?.crops}
@@ -172,6 +189,19 @@ function LiveFeet() {
           }
         />
         <Toggle value={layer} options={LAYER_LABELS} onChange={setLayer} />
+        {showMask ? (
+          <>
+            <Toggle
+              value={threshold}
+              options={{ '0.3': '0.3', '0.5': '0.5', '0.7': '0.7' }}
+              onChange={setThreshold}
+            />
+            <Text style={styles.hint}>
+              Маска шукається лише в кропах, які знайшов RTMPose. Для запуску
+              потрібна локальна модель.
+            </Text>
+          </>
+        ) : null}
       </View>
     </View>
   );
@@ -190,6 +220,7 @@ const styles = StyleSheet.create({
   camera: { flex: 1 },
   panel: { gap: 10, paddingHorizontal: 16, paddingTop: 12 },
   stats: { color: 'white', fontVariant: ['tabular-nums'], textAlign: 'center' },
+  hint: { color: '#ccc', fontSize: 12, textAlign: 'center' },
   toggle: { flexDirection: 'row', gap: 8, justifyContent: 'center' },
   option: {
     paddingHorizontal: 16,

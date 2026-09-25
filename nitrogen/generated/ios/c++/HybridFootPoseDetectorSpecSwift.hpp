@@ -82,6 +82,18 @@ namespace margelo::nitro::shoetryon {
     inline void setRefine(bool refine) noexcept override {
       _swiftPart.setRefine(std::forward<decltype(refine)>(refine));
     }
+    inline bool getMaskPreview() noexcept override {
+      return _swiftPart.getMaskPreview();
+    }
+    inline void setMaskPreview(bool maskPreview) noexcept override {
+      _swiftPart.setMaskPreview(std::forward<decltype(maskPreview)>(maskPreview));
+    }
+    inline double getMaskThreshold() noexcept override {
+      return _swiftPart.getMaskThreshold();
+    }
+    inline void setMaskThreshold(double maskThreshold) noexcept override {
+      _swiftPart.setMaskThreshold(std::forward<decltype(maskThreshold)>(maskThreshold));
+    }
 
   public:
     // Methods

@@ -9,6 +9,8 @@
     "shoes": true,
     "legMatte": true,
     "matchCamera": true,
+    "maskPreview": true,
+    "maskPreviewVersion": true,
     "hybridRef": true
   }
 }
