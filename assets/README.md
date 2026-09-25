@@ -19,7 +19,7 @@ an absolute path to work off an external disk without editing anything.
 |---|---|---|---|
 | `synfoot/` | 31 G | [SynFoot](https://github.com/OllieBoyne/SynFoot) V1 — 50 000 renders of bare feet with masks, keypoints and camera poses | Downloaded. `research/foot-3d/README.md` has the link |
 | `synth/` | 3.6 G | **Our own** renders: `renders/` (20 000 frames, feet in socks and trousers, mirror/top/third camera) and `shapes/` (FIND feet sampled for the renderer) | `python -m synth.export_shapes`, then `render/render.py`. ~18 h on one Mac |
-| `checkpoints/` | 133 M | FootNet weights: `best.pt`, named copies of earlier runs, the exported `.mlpackage`, and the unpromoted `real-finetune-156/` experiment (`best.pt`, `last.pt`, `metrics.csv`) | `python -m footnet.train`, `python -m footnet.export`, `python -m footnet.finetune_real` |
+| `checkpoints/` | 150 M | FootNet weights: `best.pt`, named copies of earlier runs, the exported `.mlpackage`, the unpromoted `real-finetune-156/` experiment, and the from-scratch `footmask-v1/` checkpoint plus Core ML package | `python -m footnet.train`, `python -m footnet.export`, `python -m footnet.finetune_real`, `python -m footnet.train_mask`, `python -m footnet.export_mask` |
 | `capture/` | 3.9 G | Real footage shot on an iPhone 11: `raw/` videos per scenario, `prepared/` sampled frames, `masks/`, `labels.json` | Filmed. `research/foot-tracking/README.md` says how |
 | `real-crops/` | 128 K | Four hand-picked real foot crops, the quick eyeball check for a new checkpoint | Cut by hand from `capture/prepared` |
 | `onnx/` | 407 M | RTMPose-m and RTMW-x-l, fp32 as downloaded and fp16 as converted | `~/.cache/rtmlib` → `tools/model-convert` |

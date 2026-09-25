@@ -198,6 +198,62 @@ each real batch. Metrics count only landmark labels inside each crop.
 The median improvement on one held-out clip did not carry to its tail or confidence recall. Keep
 the original checkpoint until there are more source clips and footwear labels.
 
+## From-scratch visible-foot mask experiment (2026-09-25)
+
+`footmask-v1` uses a MobileNetV3-Small U-Net with mask, landmark and side outputs. It was initialized
+randomly and trained on 45,600 per-foot crops from 19,000 owned Blender frames; 2,400 crops from
+1,000 other frames were held out. MPS was available during training and evaluation. The 20-epoch
+run took about 2 h 45 min total (epoch times varied from 7.3 to 11.2 min). `best.pt` is epoch 16,
+selected by mean crop Dice at threshold 0.5; epoch 20 is `last.pt`.
+
+| Mask threshold | Dice, all 2,400 crops | Dice, positive only | Pixel precision, all | Pixel recall | Empty-crop false-positive area |
+|---|---:|---:|---:|---:|---:|
+| 0.3 | 0.8993 | 0.8870 | 0.8371 | 0.9611 | 0.376 % |
+| 0.5 | 0.9048 | 0.8936 | 0.8672 | 0.9438 | 0.274 % |
+| 0.7 | 0.9057 | 0.8942 | 0.8934 | 0.9206 | 0.195 % |
+
+The all-crop Dice and precision include 400 empty crops. The positive-only Dice excludes them;
+empty-crop false-positive area is reported separately. Threshold 0.5 positive-crop groups:
+
+| Holdout group | Dice | Pixel precision | Pixel recall |
+|---|---:|---:|---:|
+| Mirror | 0.9144 | 0.8899 | 0.9479 |
+| Top | 0.8930 | 0.8852 | 0.9502 |
+| Third person | 0.8538 | 0.8255 | 0.9301 |
+| Bare | 0.8952 | 0.8752 | 0.9460 |
+| Sock | 0.8925 | 0.8688 | 0.9423 |
+| Trousers | 0.8979 | 0.8787 | 0.9451 |
+| No trousers | 0.8849 | 0.8554 | 0.9408 |
+
+Across visible labelled landmarks, median error is 5.66 px and p90 is 14.88 px at 256×256;
+side accuracy is 91.0 %. These are synthetic holdout figures. They do not score real mask edges.
+`research/foot-3d/results/footmask-v1/final-validation.json` and `last-validation.json` hold the
+full threshold sweeps for best and last.
+
+The Core ML package and compiled model are each 2.8 MB. On the M1 Pro, per-crop prediction takes
+1.25 ms with `.all`, 1.24 ms with `CPU_AND_NE`, and 3.82 ms with `CPU_ONLY`. This is a Mac
+measurement, not iPhone 11 latency or proof of ANE placement. On 16 held-out crops, Core ML and
+PyTorch disagree on the mask-logit sign at 0.022 % of pixels. Of 78 visible labelled landmarks,
+10 have score ≥0.3 in both frameworks; these coordinates differ by at most 0.029 px. One
+low-confidence point (score 0.005) differs by 101.6 px; no labelled point crosses the 0.3 score
+threshold between frameworks. Output absolute error p99 / max is 2.19 / 2.26 for mask logits,
+6.93 / 7.34 for heatmaps and 0.119 / 0.121 for the side logit, so this is decision-level mask
+parity on a small sample, not full-precision logit equality. Core ML conversion warned that
+PyTorch 2.11 is newer than the latest version tested by the installed coremltools (2.7);
+conversion and prediction completed. The compiled `.mlmodelc` also loaded in a Swift Core ML
+smoke check on the Mac and returned the expected `[1,1,256,256]` mask, `[1,8,256,256]` heatmaps
+and `[1,1]` side outputs; this is not an iOS build or phone trace.
+
+The real-frame review sampled one middle frame from each of 23 prepared clips. RTMPose returned 42
+seeded feet out of 46 possible. Some predicted masks miss the selected sock or spill onto adjacent
+regions at thresholds 0.5 and 0.7. This is qualitative only: the real frames have no foot-instance
+mask labels, and RTMPose seeding means the experiment does not test full-frame acquisition.
+`results/footmask-v1/real-review.jpg` and `capture-review/contact-sheet.jpg` are ignored local
+artifacts.
+
+An iPhone 11 latency trace, per-layer execution-provider proof, real dense-mask precision/recall,
+and live temporal-stability measurement have not been obtained.
+
 ## Unmeasured, and known to be
 
 These are assumptions in the code. Any estimate depending on them inherits their uncertainty.

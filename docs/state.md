@@ -1,6 +1,6 @@
 # Where the prototype stands
 
-Last updated 2026-09-24. This file is the honest status; the READMEs describe how things work, this
+Last updated 2026-09-25. This file is the honest status; the READMEs describe how things work, this
 one says how well.
 
 ## Works
@@ -32,6 +32,11 @@ one says how well.
   attempts at guessing it geometrically were measured and rejected. The developer confirms the live
   model still flickers instead of recognizing the foot when the heel is not visible; the decoder
   parity and coordinate probes did not address this visibility/tracking failure.
+- **Visible-foot mask experiment is not ready for the app.** A new crop model trained from scratch
+  reaches 0.905 Dice on held-out synthetic renders, but qualitative real-frame overlays still miss
+  selected socks or spill onto neighbouring regions. It still needs RTMPose to acquire its first
+  crop. There is no real foot-mask ground truth, no iPhone 11 latency trace and no live integration.
+  The 6 fps RTMPose result does not measure a lightweight full-frame mask model.
 - **Looking down at your own feet.** Measured 2026-09-23: the mirror view places both shoes
   correctly, the top-down view flickers between confident and blank on a static scene and draws
   nothing usable. Same model, same socks — this is the synthetic-to-real gap, not the geometry.
@@ -67,16 +72,24 @@ one says how well.
   small but non-conclusive gain; matching saturation, blur, or denoise did not help. A partial-label
   fine-tune on 111 seed crops improved the held-out test median but worsened its p90 and confidence
   recall, so the pilot checkpoint was not promoted.
+- Trained `footmask-v1` from random initialization for 20 epochs on the owned visible-pixel render
+  masks. Best is epoch 16: 0.9048 mean crop Dice at threshold 0.5 on 2,400 crops from 1,000
+  held-out frames. Core ML conversion succeeds; a 16-crop parity sample shows 0.022 % mask decision
+  disagreement, while real visual review shows unresolved misses and spill. The model remains
+  outside the app. Details and threshold sweep are in
+  [`research/foot-3d/FOOT_MASK_SPEC.md`](../research/foot-3d/FOOT_MASK_SPEC.md).
 
 ## Next, in the order the evidence suggests
 
-1. **Collect more varied real labels**, including shoes and independent source clips. The 156-label
-   set is too small to establish generalization: its partial-label fine-tune helped the test median
-   but hurt p90 and confidence recall.
-2. **Add footwear to the renderer** for the separate, still-uncovered shod-foot case. Existing
-   render validation contains no shoes.
-3. RTMPose through Core ML, the 64×64 FootNet decoder, the floor-plane template fit, package model
-   delivery, and Android remain later work.
+1. **Collect real foot-instance mask labels** from multiple source clips and views. The current
+   frames have only body/foreground mattes and sparse toe/heel clicks; neither evaluates this mask.
+2. **Compare a light full-frame mask model with the crop model.** The crop model still requires
+   RTMPose to seed an initial region. The existing 6 fps measurement is for RTMPose, so it cannot
+   predict the speed of a small segmentation model; test recall and latency on iPhone 11.
+3. Only consider app integration after real-mask evaluation, an iPhone 11 execution trace and live
+   mirror/top/side tracking checks. Shoes remain a separate data gap: neither current render set
+   contains footwear. RTMPose Core ML, the 64×64 decoder, floor-plane fitting, package model delivery
+   and Android remain later work.
 
 ## Things that are assumptions, not facts
 

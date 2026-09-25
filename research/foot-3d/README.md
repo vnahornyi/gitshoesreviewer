@@ -1,5 +1,7 @@
 # Spike: 3D foot pose from dense template correspondences
 
+> The current mask-first model task is specified in [`FOOT_MASK_SPEC.md`](FOOT_MASK_SPEC.md): visible foot-surface masks are positive for bare skin and socks, and do not require a visible heel.
+
 Can a network that maps every foot pixel to a point on a 3D foot template give the app a full 6-DoF foot pose? Two keypoints per foot, heel and toe from RTMPose, are not enough: from the front the heel is hidden, the model puts it on the ankle, and the shoe lands in the wrong place.
 
 The spike uses the pretrained TOC model from [FOCUS](https://github.com/OllieBoyne/FOCUS) (Boyne & Cipolla, 3DV 2025). Its code is MIT, but it builds on [DSINE](https://github.com/baegwangbin/DSINE), whose licence allows **non-commercial research only**, so this model is for the spike only. The network is DenseDepth on EfficientNet-B5, 72M parameters, 277 MB. It predicts a foot mask, template coordinates (TOC) with their uncertainty, normals, and whether the foot is left or right. A TOC value maps to the [FIND](https://github.com/OllieBoyne/FIND) template foot (metres, x toe-ward, z up, 26.4 cm long) as `toc × (max − min) + min`. `cv2.solvePnPRansac` on 600 confident pixels gives the pose. The template is a left foot; for a right foot the fit mirrors y and keeps whichever variant fits better.
@@ -74,6 +76,60 @@ uv run python -m footnet.real                              # RTMPose crop → Fo
 - **Real-image ablation (2026-09-24).** Downsampling real crops to the measured synthetic source scale gave a small, non-conclusive gain. Matching synthetic saturation, blur, or denoise did not help. Reproduce with `uv run python -m footnet.ablate_real_domain`; it writes per-view oracle and RTMPose-seed results to ignored `results/footnet/domain-ablation.csv`.
 - **Partial-label real fine-tune (2026-09-24).** A pilot trained from `v2-renders-7k.pt` on 111 seed crops from four clips, with whole clips held out for validation and test and a fully labelled render batch replayed at each update. On the 26-crop test clip, median error improved from 0.1681 to 0.1380 foot lengths, but p90 worsened from 1.3899 to 1.5241 and score≥0.3 recall fell from 43.8 % to 39.6 %. Do not promote this checkpoint. Reproduce with `uv run python -m footnet.finetune_real`; metrics and unpromoted checkpoints are under ignored `assets/checkpoints/real-finetune-156/`.
 - **Speed on the M1 Pro:** 0.45 s per batch of 32 in fp32. fp16 and bf16 autocast on MPS are slower, and `channels_last` fails in the decoder.
+
+## Visible-foot mask experiment (2026-09-25)
+
+The separate `footmask-v1` experiment trains from random initialization on the owned render masks;
+it treats bare-foot and sock pixels as the same visible-foot class and does not require a visible
+heel. Crops are centered from visible-mask bounds, with empty-background crops for rejection. It is
+not the checkpoint loaded by the app and is not wired into `FootNetRunner`.
+
+```bash
+uv run python -m footnet.train_mask --epochs 20 --batch 32 --workers 8
+uv run python -m footnet.evaluate_mask
+uv run python -m footnet.export_mask
+uv run python -m footnet.review_mask --captures --per-video 1
+```
+
+Weights and the Core ML package go under `assets/checkpoints/footmask-v1/`; validation and real
+overlays go under the ignored `results/footmask-v1/`. The validation set is held out by render
+frame. Synthetic mask scores and the real overlays cannot establish real-world boundary accuracy:
+the repository has no real foot-instance mask labels. See [`FOOT_MASK_SPEC.md`](FOOT_MASK_SPEC.md)
+for the target, scenario matrix, runtime boundaries and promotion criteria.
+
+**Result (2026-09-25).** Trained from random initialization for 20 epochs on 45,600 crops from
+19,000 render frames; the holdout is 2,400 crops from 1,000 other frames. The best checkpoint is
+epoch 16, chosen by per-crop Dice at threshold 0.5. The last checkpoint is epoch 20.
+
+| Threshold | Dice, all 2,400 crops | Dice, positive crops | Pixel precision | Pixel recall | Empty-crop false-positive area |
+|---|---:|---:|---:|---:|---:|
+| 0.3 | 0.8993 | 0.8870 | 0.8371 | 0.9611 | 0.38 % |
+| 0.5 | 0.9048 | 0.8936 | 0.8672 | 0.9438 | 0.27 % |
+| 0.7 | 0.9057 | 0.8942 | 0.8934 | 0.9206 | 0.19 % |
+
+At threshold 0.5, positive-crop Dice is 0.914 mirror, 0.893 top, 0.854 third-person, 0.895 bare
+and 0.893 sock; trouser and no-trouser subsets are 0.898 and 0.885. Visible-landmark error is 5.66 px median
+/ 14.88 px p90 at 256×256, and side accuracy is 91.0 %. The last checkpoint scores 0.9031 Dice,
+0.8635 pixel precision and 0.9449 pixel recall at 0.5, so it does not replace epoch 16.
+
+The Core ML package and compiled model are each 2.8 MB. On the M1 Pro, Core ML measures 1.25
+ms/crop with `.all`, 1.24 ms with `CPU_AND_NE`, and 3.82 ms with `CPU_ONLY`. This is a Mac timing,
+not iPhone 11 latency or proof of Neural Engine placement. On 16 holdout crops, mask decisions
+differ from PyTorch on 0.022 % of pixels. Of 78 labelled landmarks, 10 scored ≥0.3 in both
+frameworks; those coordinates differ by at most 0.029 px. One low-confidence landmark (score
+0.005) differs by 101.6 px, and is not a usable point.
+
+The compiled `.mlmodelc` also loaded and returned all three expected output tensors through Swift
+Core ML on the Mac. This was a package smoke check with a generated pixel buffer, not an iOS build,
+an iPhone run or an execution-provider trace.
+
+The qualitative pass sampled one middle frame from each of 23 real clips. RTMPose seeded 42 of 46
+possible feet. The mask still misses a sock in some mirror crops and spills onto neighbouring
+regions in some views at both 0.5 and 0.7. There are no dense real-foot labels to score these
+overlays. The artifact remains a research candidate: it is not wired into `FootNetRunner`, has no
+iPhone 11 trace, and does not remove RTMPose from initial crop acquisition. A lightweight
+full-frame segmenter remains unmeasured; the existing 6 fps result belongs to RTMPose, not to such
+a mask model.
 
 # Synthetic renders without the Blender UI
 
