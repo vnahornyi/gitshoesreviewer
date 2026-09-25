@@ -1,5 +1,6 @@
 import CoreGraphics
 import Foundation
+import QuartzCore
 import UIKit
 
 struct FootMaskPreviewFrame {
@@ -8,27 +9,66 @@ struct FootMaskPreviewFrame {
   let y: Double
   let width: Double
   let height: Double
+  let hasForeground: Bool
 }
 
 final class FootMaskPreviewStore {
   static let shared = FootMaskPreviewStore()
+  // Keep a usable preview only as long as the tracker itself tolerates a weak observation.
+  static let retentionDuration: CFTimeInterval = 0.3
+
+  private struct StoredFrame {
+    let frame: FootMaskPreviewFrame
+    let updatedAt: CFTimeInterval
+  }
 
   private let lock = NSLock()
-  private var frames: [FootMaskPreviewFrame?] = [nil, nil]
+  private var frames: [StoredFrame?] = [nil, nil]
 
   func beginFrame() {
-    lock.withLock { frames = [nil, nil] }
+    lock.withLock { discardExpired(at: CACurrentMediaTime()) }
   }
 
   func set(_ frame: FootMaskPreviewFrame, side: Int) {
     lock.withLock {
       guard frames.indices.contains(side) else { return }
-      frames[side] = frame
+      guard frame.hasForeground else {
+        guard let previous = frames[side], Self.isWithinOneMaskPixel(previous.frame, frame) else {
+          frames[side] = nil
+          return
+        }
+        return
+      }
+      frames[side] = StoredFrame(frame: frame, updatedAt: CACurrentMediaTime())
     }
   }
 
   func snapshot() -> [FootMaskPreviewFrame?] {
-    lock.withLock { frames }
+    lock.withLock {
+      discardExpired(at: CACurrentMediaTime())
+      return frames.map { $0?.frame }
+    }
+  }
+
+  func clearAll() {
+    lock.withLock { frames = [nil, nil] }
+  }
+
+  private func discardExpired(at now: CFTimeInterval) {
+    for index in frames.indices {
+      guard let frame = frames[index], now - frame.updatedAt > Self.retentionDuration else { continue }
+      frames[index] = nil
+    }
+  }
+
+  private static func isWithinOneMaskPixel(_ previous: FootMaskPreviewFrame,
+                                           _ current: FootMaskPreviewFrame) -> Bool {
+    let xTolerance = max(previous.width, current.width) / Double(FootNet.maskPreviewSize)
+    let yTolerance = max(previous.height, current.height) / Double(FootNet.maskPreviewSize)
+    return abs(previous.x - current.x) <= xTolerance
+      && abs(previous.y - current.y) <= yTolerance
+      && abs(previous.width - current.width) <= xTolerance
+      && abs(previous.height - current.height) <= yTolerance
   }
 }
 
@@ -58,6 +98,8 @@ final class FootMaskOverlayView: UIView {
 
   func refresh() {
     let frames = FootMaskPreviewStore.shared.snapshot()
+    CATransaction.begin()
+    CATransaction.setDisableActions(true)
     for index in masks.indices {
       guard let frame = frames[index], let image = makeImage(frame.pixels) else {
         masks[index].contents = nil
@@ -71,10 +113,14 @@ final class FootMaskOverlayView: UIView {
         height: frame.height * bounds.height
       )
     }
+    CATransaction.commit()
   }
 
   func clear() {
+    CATransaction.begin()
+    CATransaction.setDisableActions(true)
     masks.forEach { $0.contents = nil }
+    CATransaction.commit()
   }
 
   private func makeImage(_ pixels: Data) -> CGImage? {

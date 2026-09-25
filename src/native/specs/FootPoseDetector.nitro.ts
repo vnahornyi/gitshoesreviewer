@@ -8,8 +8,8 @@ export interface FootPoseResult {
   // FootNet, when `refine` is on: left foot then right, 8 points × [x, y, score] normalized to the frame.
   // A foot RTMPose did not find, or FootNet was not run on, is all zeros.
   refined: number[];
-  // The crop each foot was looked for in: left then right, [x, y, side, brightness], the box normalized to the
-  // frame and the brightness the average of its pixels. All zeros when the foot has no crop.
+  // The crop actually passed to FootNet this frame: left then right, [x, y, side, brightness], normalized to the
+  // frame. A missing crop is all zeros; these are not the next crops maintained by the tracker.
   crops: number[];
   preprocessMs: number;
   inferenceMs: number;

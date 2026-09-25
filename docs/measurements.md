@@ -12,6 +12,13 @@ Device is an **iPhone 11 (A13)** unless stated. Mac is an **M1 Pro**.
 |---|---|---|
 | 2026-09-22 | RTMPose every frame + FootNet refinement | 6 |
 | 2026-09-23 | FootNet every frame per foot, RTMPose only when a foot is lost | 28–30 |
+| 2026-09-25 18:01 | Example camera with synchronous mask preview selected, screen debug counter | 4.1–4.4 |
+| 2026-09-25 21:25 | Same preview, later screen recording after timing breakdown was added | 10.8–11.5 |
+| 2026-09-25 22:10 | Same preview, new screen recording after crop-alignment retention change | 8.3–11.3 |
+
+These figures are the debug UI's delivered-sample rates from iPhone screen recordings, not Instruments
+traces. They include the rest of the app's frame path. The camera movement and number of active foot
+crops differ, so they are not controlled before/after comparisons and do not establish an FPS gain.
 
 ## Model latency
 
@@ -28,6 +35,35 @@ Device is an **iPhone 11 (A13)** unless stated. Mac is an **M1 Pro**.
 | FootNet, Core ML | Mac, `CPU_AND_NE` / `CPU_ONLY` | 4.6 / 7.1 ms | 2026-09-23 |
 
 The ONNX Runtime figure is the one that mattered: its Core ML EP produced **22 graph partitions**.
+
+## Mask-preview latency
+
+| Path | Where | Latency | Date |
+|---|---|---|---|
+| footmask-v1 preview path | iPhone, first recording's active crop(s), screen debug counter | 133–142 ms/frame | 2026-09-25 18:01 |
+| footmask-v1 preview path | iPhone, later recording's active crops, screen debug counter | 46.9–49.0 ms/frame | 2026-09-25 21:25 |
+| footmask-v1 preview path | iPhone, new recording's active crops, screen debug counter | 46.9–52.5 ms/frame | 2026-09-25 21:52 |
+| footmask-v1 preview path | iPhone, new recording's active crops, screen debug counter | 45.7–53.2 ms/frame | 2026-09-25 22:10 |
+
+The timer wraps the Core ML prediction, float16 output conversion, threshold/downsample and native
+overlay storage for every active crop in that frame; UIKit/Core Animation image creation and drawing
+are outside it. In the later recording, the last crop reported 9.4–11.6 ms for the Core ML call and
+12.6–12.7 ms for native post-processing. The full-foot refinement was 79–81 ms and includes this
+mask work. In the 21:52 recording, sampled active-crop frames delivered 10.1–10.8 fps, with 84–94 ms
+for full-foot refinement; the last crop reported 9.9–14.6 ms for Core ML and 11.2–12.7 ms for
+post-processing. A sampled frame with no active crops showed 14.4 fps and 0 ms total mask time, while
+the status text still displayed the last crop's timing. Scene, crop count, movement and mask threshold
+differ between recordings, so these values do not establish a before/after speed change. The latest
+recording also shows masks displaced from moving feet in sampled frames. This is qualitative evidence;
+without real mask labels it cannot distinguish stale retained overlays from model spill. No
+post-processing optimization has been measured on a phone yet. This is a diagnostic path, not the
+production shoe path.
+
+In the 22:10 recording, sampled active-crop frames delivered 8.3–11.3 fps and 81–91 ms full-foot
+refinement. The last crop reported 9.2–16.6 ms for Core ML and 11.5–13.8 ms for post-processing.
+The threshold changes during the recording. Some sampled frames at 0.7 align the overlay with most
+of a foot; other moving frames spill onto the shin or nearby objects. This is qualitative review
+without real mask labels and does not isolate the effect of the crop-alignment retention change.
 
 ## FootNet accuracy
 

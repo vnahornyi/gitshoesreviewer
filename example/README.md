@@ -25,7 +25,7 @@ npm run ios -- --device "Your iPhone's name"
 | File | What it is |
 |---|---|
 | `App.tsx` | Providers and the status bar, nothing else |
-| `src/FootDebugScreen.tsx` | The screen: camera, stats, overlay and mask-threshold controls |
+| `src/FootDebugScreen.tsx` | The screen: camera, detector stats, crop bounds, overlay and mask-threshold controls |
 | `src/FootOverlay.tsx` | Draws the points and the axes over the preview |
 
 The Xcode project is still named `aishoesreviewer`, from before the split. Renaming it is churn with
@@ -44,7 +44,13 @@ spreads branches through the code.
 The **Маска** layer is a temporary diagnostic for `footmask-v1`, not a production shoe mode. To
 enable it, copy `assets/checkpoints/footmask-v1/footmask-v1.mlmodelc` into `model/`, run
 `cd example/ios && bundle exec pod install`, then launch the example on a real iPhone as above. The
-screen lets you compare thresholds 0.3, 0.5 and 0.7 and shows mask inference time alongside camera
-FPS. It only predicts within crops already acquired by RTMPose; a missing local model is reported
+screen lets you compare thresholds 0.3, 0.5 and 0.7, shows mask inference time alongside camera
+FPS, and outlines the left and right crops used by the model. The outlines make it possible to tell
+whether a misplaced mask follows a misplaced crop or comes from the prediction inside a correctly
+placed crop; the bounds now match the inference input for that result rather than the tracker crop
+for the next frame. The native overlay applies mask updates without implicit layer animations. It
+also shows the last whole-frame RTMPose search's per-foot landmark count and age,
+separate from FootNet's `N/16` confidence count. The stats line reports crop brightness separately.
+The mask only predicts within crops already acquired by RTMPose; a missing local model is reported
 without preventing the regular detector from loading. Use mirror, top-down and side views to inspect
 the overlay. Simulator output cannot establish camera performance or iPhone 11 latency.

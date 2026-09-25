@@ -68,7 +68,7 @@ private enum Feet {
   // corner of the foot, the model sees even less in it, and it never recovers.
   static let sizeStep = 1.2
   // How long a crop keeps being looked at after the last frame the model was sure in it.
-  static let lostAfter: CFTimeInterval = 0.3
+  static let lostAfter = FootMaskPreviewStore.retentionDuration
   // A walking foot is centimetres further on by the time the next frame arrives, so a crop placed where it was is a
   // crop it is walking out of. The model then grows unsure in it, the foot is dropped, and the whole-frame search
   // takes a quarter of a second to pick it up — which is what makes the shoe blink while walking. These lead the
@@ -95,8 +95,6 @@ private final class Runner {
   private var seenAt: [CFTimeInterval] = [0, 0]
   // How fast each foot's crop is moving across the frame, in pixels per second, to lead it on the next frame.
   private var motion: [(x: Double, y: Double)] = [(0, 0), (0, 0)]
-  // How bright each foot's crop was, to tell a crop of a foot from one of nothing.
-  private var brightness: [Double] = [0, 0]
   private var searched: [Double] = []
   private var searchedAt: CFTimeInterval = 0
 
@@ -136,16 +134,14 @@ private final class Runner {
     FootMaskPreviewStore.shared.beginFrame()
     let refinement = following
       ? self.refine(in: pixelBuffer, at: started, maskPreview: maskPreview, threshold: maskThreshold)
-      : (points: [Double](repeating: 0, count: 2 * FootNet.joints * 3), maskPreviewMs: 0)
+      : (points: [Double](repeating: 0, count: 2 * FootNet.joints * 3),
+         maskPreviewMs: 0.0, crops: [Double](repeating: 0, count: 8))
     let width = Double(CVPixelBufferGetWidth(pixelBuffer))
     let height = Double(CVPixelBufferGetHeight(pixelBuffer))
     return FootPoseResult(
       points: points,
       refined: refinement.points,
-      crops: tracked.enumerated().flatMap { side, box in
-        guard let box else { return [0.0, 0.0, 0.0, 0.0] }
-        return [box.x / width, box.y / height, box.side / width, brightness[side]]
-      },
+      crops: refinement.crops,
       preprocessMs: (prepared - started) * 1000,
       inferenceMs: (finished - prepared) * 1000,
       refineMs: (CACurrentMediaTime() - finished) * 1000,
@@ -158,20 +154,21 @@ private final class Runner {
   // moves onto its own points for the next frame; one it was not sure in stays where it is for a moment, because the
   // foot is usually still there and the whole-frame search costs more than the frame's budget.
   private func refine(in pixelBuffer: CVPixelBuffer, at now: CFTimeInterval,
-                      maskPreview: Bool, threshold: Double) -> (points: [Double], maskPreviewMs: Double) {
+                      maskPreview: Bool, threshold: Double)
+    -> (points: [Double], maskPreviewMs: Double, crops: [Double]) {
     let empty = [Double](repeating: 0, count: FootNet.joints * 3)
-    guard let footNet else { return (empty + empty, 0) }
+    guard let footNet else { return (empty + empty, 0, [Double](repeating: 0, count: 8)) }
     let width = Double(CVPixelBufferGetWidth(pixelBuffer))
     let height = Double(CVPixelBufferGetHeight(pixelBuffer))
     var refined = [[Double]](repeating: empty, count: Feet.joints.count)
     var sureCount = [Int](repeating: 0, count: Feet.joints.count)
     var maskPreviewMs = 0.0
+    var crops = [Double](repeating: 0, count: Feet.joints.count * 4)
     for foot in Feet.joints {
       let following = tracked[foot.side]
       if following == nil { motion[foot.side] = (0, 0) }
       guard let observed = following ?? seed(for: foot, width: width, height: height) else {
         tracked[foot.side] = nil
-        brightness[foot.side] = 0
         continue
       }
       // Where the foot will be, not where it was. A crop seeded by the whole-frame search has no history to lead it
@@ -181,11 +178,14 @@ private final class Runner {
                                           threshold: threshold, side: foot.side),
             output.points.count == FootNet.joints * 3 else {
         tracked[foot.side] = nil
-        brightness[foot.side] = 0
         continue
       }
+      let cropOffset = foot.side * 4
+      crops[cropOffset] = box.x / width
+      crops[cropOffset + 1] = box.y / height
+      crops[cropOffset + 2] = box.side / width
+      crops[cropOffset + 3] = footNet.brightness
       maskPreviewMs += output.maskPreviewMs
-      brightness[foot.side] = footNet.brightness
       // Every point the model found is passed on with its score, however low; whoever places the shoe decides what to
       // trust. Only whether to keep following this crop is decided here.
       let normalized = FootNetCoordinates.normalized(output.points, width: width, height: height)
@@ -214,7 +214,7 @@ private final class Runner {
       sureCount[foot.side] = sure.count
     }
     dropTheDouble(&refined, sureCount: sureCount, empty: empty)
-    return (refined.flatMap { $0 }, maskPreviewMs)
+    return (refined.flatMap { $0 }, maskPreviewMs, crops)
   }
 
   // Where to look for a foot that is moving: its last crop, carried on by the speed of the frames before it. The
@@ -248,7 +248,8 @@ private final class Runner {
       .filter { points[$0 * 3 + 2] >= Feet.minScore }
       .map { (x: points[$0 * 3] * width, y: points[$0 * 3 + 1] * height) }
     let ankle = Feet.ankles[foot.side]
-    if seen.count < 2, points[ankle * 3 + 2] >= Feet.minScore {
+    // Keep the ankle with the foot points: two visible toes alone make a toe-only seed when the heel is hidden.
+    if points[ankle * 3 + 2] >= Feet.minScore {
       seen.append((x: points[ankle * 3] * width, y: points[ankle * 3 + 1] * height))
     }
     return seen.count >= 2 ? FootNetRunner.box(around: seen) : nil
@@ -352,12 +353,23 @@ class HybridFootPoseDetector: HybridFootPoseDetectorSpec {
 
   var maskPreview: Bool {
     get { lock.withLock { maskPreviewEnabled } }
-    set { lock.withLock { maskPreviewEnabled = newValue } }
+    set {
+      lock.withLock { maskPreviewEnabled = newValue }
+      if !newValue { FootMaskPreviewStore.shared.clearAll() }
+    }
   }
 
   var maskThreshold: Double {
     get { lock.withLock { maskThresholdValue } }
-    set { lock.withLock { maskThresholdValue = min(max(newValue, 0.0), 1.0) } }
+    set {
+      let value = min(max(newValue, 0.0), 1.0)
+      let changed = lock.withLock {
+        guard maskThresholdValue != value else { return false }
+        maskThresholdValue = value
+        return true
+      }
+      if changed { FootMaskPreviewStore.shared.clearAll() }
+    }
   }
 
   var status: String {

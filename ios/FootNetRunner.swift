@@ -26,6 +26,11 @@ struct FootNetRun {
   let maskPreviewMs: Double
 }
 
+private struct FootMaskPreviewPixels {
+  let data: Data
+  let hasForeground: Bool
+}
+
 final class FootNetRunner {
   private let model: MLModel
   private let maskPreviewModel: MLModel?
@@ -121,9 +126,12 @@ final class FootNetRunner {
     guard let maskPreviewModel else { return 0 }
     let started = CACurrentMediaTime()
     do {
+      let predictionStarted = CACurrentMediaTime()
       let output = try maskPreviewModel.prediction(
         from: try MLDictionaryFeatureProvider(dictionary: ["image": MLFeatureValue(pixelBuffer: input)])
       )
+      let predictionMs = (CACurrentMediaTime() - predictionStarted) * 1000
+      let postprocessStarted = CACurrentMediaTime()
       guard let array = output.featureValue(for: "mask_logits")?.multiArrayValue,
             let pixels = try Self.previewPixels(array, threshold: threshold, side: side) else {
         setMaskStatus("error: no mask logits")
@@ -131,15 +139,17 @@ final class FootNetRunner {
       }
       FootMaskPreviewStore.shared.set(
         FootMaskPreviewFrame(
-          pixels: pixels,
+          pixels: pixels.data,
           x: crop.x / Double(frameWidth),
           y: crop.y / Double(frameHeight),
           width: crop.side / Double(frameWidth),
-          height: crop.side / Double(frameHeight)
+          height: crop.side / Double(frameHeight),
+          hasForeground: pixels.hasForeground
         ),
         side: side
       )
-      setMaskStatus("ready")
+      let postprocessMs = (CACurrentMediaTime() - postprocessStarted) * 1000
+      setMaskStatus(String(format: "ready · ML %.1f + post %.1f ms", predictionMs, postprocessMs))
     } catch {
       setMaskStatus("error: inference failed")
     }
@@ -150,7 +160,8 @@ final class FootNetRunner {
     maskStatusLock.withLock { maskStatusValue = status }
   }
 
-  private static func previewPixels(_ array: MLMultiArray, threshold: Double, side: Int) throws -> Data? {
+  private static func previewPixels(_ array: MLMultiArray, threshold: Double,
+                                    side: Int) throws -> FootMaskPreviewPixels? {
     let inputSize = FootNet.size
     let outputSize = FootNet.maskPreviewSize
     let inputCount = inputSize * inputSize
@@ -181,6 +192,7 @@ final class FootNetRunner {
       thresholdLogit = Float(log(threshold / (1 - threshold)))
     }
     var pixels = [UInt8](repeating: 0, count: outputSize * outputSize * 4)
+    var hasForeground = false
     for y in 0..<outputSize {
       for x in 0..<outputSize {
         var visible = 0
@@ -192,6 +204,7 @@ final class FootNetRunner {
           }
         }
         guard visible > 0 else { continue }
+        hasForeground = true
         let coverage = Double(visible) / Double(block * block)
         let offset = (y * outputSize + x) * 4
         pixels[offset] = UInt8(Double(color.0) * coverage)
@@ -200,7 +213,7 @@ final class FootNetRunner {
         pixels[offset + 3] = UInt8(alpha * coverage)
       }
     }
-    return Data(pixels)
+    return FootMaskPreviewPixels(data: Data(pixels), hasForeground: hasForeground)
   }
 
   // Every 16th pixel is enough for an average, and it costs microseconds.

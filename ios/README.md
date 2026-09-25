@@ -78,9 +78,19 @@ whole network stays on the Neural Engine at 1.9 ms. The same is worth doing for 
   not found, or not refined, is all zeros.
 - `maskPreview` is an example-only diagnostic flag. When true, the optional `footmask-v1.mlmodelc`
   runs on each active FootNet crop, downsamples and thresholds its logits on the native side, and
-  stores the two results for `ShoeView` to draw. Only status, threshold and timing cross the Nitro
-  interface; mask pixels stay native. The mask never seeds or moves a crop. `maskPreviewStatus`
-  reports `ready`, `missing`, or a load/inference error.
+  stores the two results for `ShoeView` to draw. A fully empty prediction retains the last non-empty
+  overlay for at most the track's existing 300 ms lost-crop grace period while the active crop stays
+  within one 64×64 output pixel of the stored crop. A larger shift clears the retained mask so it
+  cannot remain at the previous foot position. If the crop disappears, the last mask still expires
+  after 300 ms. Disabling the preview or changing its threshold clears the retained masks. This is
+  display hysteresis only; it does not seed or move a crop. Only status, threshold and timing cross the
+  Nitro interface; mask pixels stay native. `maskPreviewMs` sums the synchronous mask-model call and
+  native post-processing across active crops. When ready, `maskPreviewStatus` also shows the Core ML
+  call and post-processing times for the most recently processed crop; it reports `missing` or an
+  error when the preview is unavailable.
+- `crops` reports the crop passed to FootNet for the current result, followed by its sampled mean
+  brightness. It no longer reports the tracker's next crop, which can differ from the crop used on
+  this frame when motion leading is enabled.
 - The shared Swift decoder and frame normalization live in `FootNetDecoder.swift`. The research
   parity probe calls this same decoder on model logits quantized like the Core ML output and
   compares its points and scores against the PyTorch decoder on the same labelled crops:

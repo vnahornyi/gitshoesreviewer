@@ -32,12 +32,31 @@ one says how well.
   attempts at guessing it geometrically were measured and rejected. The developer confirms the live
   model still flickers instead of recognizing the foot when the heel is not visible; the decoder
   parity and coordinate probes did not address this visibility/tracking failure.
+- **The 23:14 recording exposed an unstable reacquisition crop.** While a foot barely moved, its
+  crop alternated between a large foot-and-ankle region and a toe-only region. The seed builder
+  included RTMPose's ankle only when fewer than two foot points were visible, so two toe points could
+  exclude a confident ankle precisely when the heel was hidden. The seed now includes a confident
+  ankle regardless of the number of visible foot points. This is a code-level fix; it still needs a
+  device build and a same-scene recording to confirm the crop and mask stay stable.
 - **Visible-foot mask is available as a diagnostic camera preview only.** The example's “Маска”
   layer runs the optional crop model on regions the existing RTMPose/tracker path already follows,
   and displays a native overlay with a threshold selector. It cannot acquire a foot on its own or
-  affect tracking. The model reaches 0.905 Dice on held-out synthetic renders, but qualitative
-  real-frame overlays still miss selected socks or spill onto neighbouring regions. There is no
-  real foot-mask ground truth and no physical-device latency trace or live-device validation yet.
+  affect tracking. The preview now retains its last non-empty mask through the tracker's existing
+  300 ms lost-crop grace period to hide brief empty predictions; this display-only hysteresis has
+  not yet been checked on a device and cannot fix longer tracker or model dropouts. The model reaches
+  0.905 Dice on held-out synthetic renders. Screen recordings on 2026-09-25 show promising overlays
+  on socks and sneakers, including another person's feet, but also off-foot spill. The 21:25 recording
+  showed 10.8–11.5 fps and 46.9–49.0 ms total across active crops. The 21:52 recording showed
+  10.1–10.8 fps and 46.9–52.5 ms across active crops; sampled moving frames show the overlay displaced
+  from the feet. The preview now retains an empty prediction only while its crop stays within one
+  output pixel of the stored crop, and clears it after a larger shift; a missing crop still expires
+  after 300 ms. The 22:10 recording exercises this behavior but does not isolate its effect. It shows
+  8.3–11.3 fps and 45.7–53.2 ms across active crops, with some good foot alignment at
+  threshold 0.7 but continued spill during movement. This is qualitative review without real mask
+  ground truth; the threshold and scene change, so the recording does not isolate the retention change
+  or provide a controlled speed comparison. No post-processing optimization has been measured on a
+  phone yet; see
+  [measurements.md](measurements.md).
   The 6 fps RTMPose result does not measure a lightweight full-frame mask model.
 - **Looking down at your own feet.** Measured 2026-09-23: the mirror view places both shoes
   correctly, the top-down view flickers between confident and blank on a static scene and draws

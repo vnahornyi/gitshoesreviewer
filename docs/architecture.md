@@ -39,8 +39,8 @@ specific to this app.
 ## Tracking, in the native module
 
 State per foot (`HybridFootPoseDetector.swift`): the crop being followed, when the foot was last
-seen, the last crop's brightness, and the points RTMPose last found (the seed for picking it up
-again).
+seen, its estimated image-space velocity, and the points RTMPose last found (the seed for picking it
+up again).
 
 The rules that were arrived at by measurement, not by design:
 
@@ -51,7 +51,8 @@ The rules that were arrived at by measurement, not by design:
   waiting up to 250 ms for the next search — a dead window where FootNet ran on nothing and the
   log read `feet 0 ms`.
 - **A stored seed** lets a foot be picked up from the last RTMPose points without waiting for a new
-  search.
+  search. The seed includes the ankle whenever it meets the existing confidence threshold, even if
+  two toe points are already visible; otherwise a hidden heel can leave the crop around the toes only.
 - **Two crops that land on the same foot**: the less certain one is released, and RTMPose picks that
   foot up again.
 
@@ -72,10 +73,21 @@ take over.
 
 The example camera can run the optional `footmask-v1` model on the same tracked crops while the
 “Маска” layer is selected. It thresholds and downsamples each result on the native side, then draws
-the two masks over their crop bounds. Mask pixels do not cross into JavaScript. The preview does not
-search the full frame, seed a new crop, affect tracking, or replace the shoe path; without an
-RTMPose-acquired crop there is no mask to show. Its extra per-frame inference time is reported in
-the debug screen. See the local model setup in [`ios/README.md`](../ios/README.md).
+the two masks over their crop bounds. Mask pixels do not cross into JavaScript. A fully empty result
+keeps the previous non-empty overlay for at most the tracker's 300 ms lost-crop grace period while
+the active crop stays within one 64×64 output pixel of the stored crop. A larger shift clears the
+retained mask so it cannot remain at the previous foot position. If the crop disappears, the last
+mask expires after 300 ms. Disabling the preview or changing its threshold clears it. This reduces
+brief visual dropouts but does not affect tracking. The preview does not search the full frame, seed a
+new crop, or replace the shoe path; after the retained result expires, it needs an RTMPose-acquired
+crop to show a mask again. Its extra per-frame inference time is reported in the debug screen. See
+the local model setup in
+[`ios/README.md`](../ios/README.md).
+
+The mask preview runs synchronously after FootNet for each active crop. Its timing sums both the
+Core ML call and native post-processing across active crops; the status text also splits those costs
+for the most recently processed crop. This diagnostic path can consume the frame budget while the
+mask layer is selected, so its frame rate is not representative of the production shoe path.
 
 Smoothing is One Euro, on normalized coordinates, so a speed of 1 means one frame **width** per
 second — x and y are not comparable in pixels.
